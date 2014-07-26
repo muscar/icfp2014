@@ -68,6 +68,7 @@
 ;; Lang 0
 
 (defparameter *functions* '())
+(defparameter *lambdas* '())
 (defparameter *structs* '())
 (defparameter *l0-current-function* nil)
 (defparameter *l0-delayed-code* nil)
@@ -93,13 +94,22 @@
   (setf *functions* (mapcar #'analyze-function functions)))
 
 (defun analyze-function (fun)
-  (assert (fundefp fun) () "expecting function definition")
+  (assert (fundefp fun) () "expecting function definition, but got ~a" fun)
   (destructuring-bind (name args &rest body) (cdr fun)
     (cons name (make-l0-function :name name
 				 :args args
 				 :locals (make-array 16 :adjustable t :fill-pointer 0)
 				 :frame-size (length args)
-				 :body body))))
+				 :body (collect-lambdas body)))))
+
+(defun collect-lambdas (body)
+  (loop for instr in body
+     collect (cond ((atom instr) instr)
+		   ((eq (first instr) 'lambda) (let* ((lambda-name (fresh-var "$l"))
+						      (lifted-lambda `(defun ,lambda-name ,@(rest instr))))
+						 (push (analyze-function lifted-lambda) *lambdas*)
+						 lambda-name))
+		   (t (collect-lambdas instr)))))
 
 (defun add-local (fun name)
   (vector-push-extend name (l0-function-locals fun))
@@ -149,21 +159,18 @@
 (defun compile-lang0 (program)
   (let ((*gcc-program* '())
 	(*functions* '())
+	(*lambdas* '())
 	(*structs* '()))
     (multiple-value-bind (functions structs) (partition #'fundefp program)
       (collect-functions functions)
       (collect-structs structs)
-      ;; Emit entry point
+
       (let ((main-function (cdr (assoc 'main *functions*))))
 	(unless main-function
 	  (error "no main function defined"))
-	(dotimes (idx (l0-function-frame-size main-function))
-	  (lang0-emit 'ldc 0))
-	(lang0-emit 'ldf 'main)
-	(lang0-emit 'ap (l0-function-frame-size main-function))
-	(lang0-emit 'rtn))
-      
-      (dolist (*l0-current-function* (mapcar #'cdr *functions*) (compile-gcc (nreverse *gcc-program*)))
+	(lang0-emit-program-start main-function))
+
+      (dolist (*l0-current-function* (mapcar #'cdr (append *lambdas* *functions*)) (compile-gcc (nreverse *gcc-program*)))
 	(let ((*l0-delayed-code* '()))
 	  (lang0-emit 'rem (l0-function-name *l0-current-function*))
 	  (lang0-mark-label (l0-function-name *l0-current-function*))
@@ -172,6 +179,13 @@
 	  (push '(RTN) *gcc-program*)
 	  (dolist (codegen *l0-delayed-code*)
 	    (funcall codegen)))))))
+
+(defun lang0-emit-program-start (main-function)
+  (dotimes (idx (l0-function-frame-size main-function))
+    (lang0-emit 'ldc 0))
+  (lang0-emit 'ldf 'main)
+  (lang0-emit 'ap (l0-function-frame-size main-function))
+  (lang0-emit 'rtn))
 
 (defun compile-lang0-instruction (instr)
   (cond ((consp instr) (compile-lang0-call instr))
