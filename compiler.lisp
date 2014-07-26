@@ -383,6 +383,7 @@
       (<= (compile-l0-binop '>= (second args) (first args)))
       (and (compile-l0-if (first args) (second args) 0))
       (or (compile-l0-if (first args) 1 (second args)))
+      (not (compile-l0-if (first args) 0 1))
       (t (let ((pos (position #\. (symbol-name op))))
 	   (when pos
 	     (multiple-value-bind (struct field) (split-at pos (symbol-name op))
