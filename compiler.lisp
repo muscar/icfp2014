@@ -67,9 +67,10 @@
 				;;     (set! x (+ x 2)))
 				;;   x)
 				(defun test-rec (n)
-				  (dbug n)
 				  (if (> n 0)
-				      (test-rec (- n 1))))))
+				      (begin
+				       (dbug n)
+				       (test-rec (- n 1)))))))
 
 (defparameter *functions* '())
 (defparameter *l0-current-function* nil)
@@ -179,6 +180,9 @@
 	       (lang0-compile-goto head-label)
 	       (push `($mark-label ,end-label) *gcc-program*))
 	       t)
+      (begin (dolist (instr args)
+	       (compile-lang0-instruction instr))
+	     t)
       ((+ - * / = > >= cons) (let* ((op-map '((+ . add)
 					      (- . sub)
 					      (* . mul)
