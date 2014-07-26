@@ -266,12 +266,7 @@
 	     name
 	     (length (l0-struct-fields struct))
 	     (length values)))
-    (dolist (value values)
-      (compile-lang0-instruction value))
-    ;; Emit NIL
-    (lang0-emit 'ldc 0)
-    (dotimes (idx (length values))
-      (lang0-emit 'cons))))
+    (lang0-prim-list values)))
 
 (defun lang0-prim-struct-field (name field-name instance)
   (let ((struct (cdr (assoc name *structs*))))
@@ -319,6 +314,14 @@
 	   (lang0-struct-field-set (second place) (third place) value (fourth place))
 	   (lang0-emit 'st level idx)))))
 
+(defun lang0-prim-list (values)
+  (dolist (value values)
+    (compile-lang0-instruction value))
+  ;; Emit NIL
+  (lang0-emit 'ldc 0)
+  (dotimes (idx (length values))
+    (lang0-emit 'cons)))
+
 (defun compile-lang0-prim (instr)
   (destructuring-bind (op &rest args) instr
     (case op
@@ -328,6 +331,8 @@
 		                  (lang0-prim-set! (first var) (second var)))
 		     (t (error "malformed local binding ~a" var))))
 	     t)
+      (list (lang0-prim-list args)
+	    t)
       (rem (lang0-emit 'rem (first args)))
       (make-struct (lang0-prim-make-struct (first args) (rest args))
 		   t)
