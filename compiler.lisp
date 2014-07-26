@@ -163,14 +163,14 @@
     (lang0-mark-label function-body-label)
     (dolist (instr (l0-function-body function))
       (compile-lang0-instruction instr))
-    (push '(rtn) *gcc-program*)
+    (lang0-emit 'rtn)
     (lang0-generate-function-stub function function-body-label)
     (dolist (codegen *l0-delayed-code*)
       (funcall codegen))))
 
 (defun lang0-generate-function-stub (function function-body-label)
   (lang0-emit 'rem (l0-function-name function))
-  (push `($mark-label ,(l0-function-name function)) *gcc-program*)
+  (lang0-mark-label (l0-function-name function))
   (dotimes (idx (length (l0-function-locals function)))
     (lang0-emit 'ldc 0))
   (lang0-emit 'ldf function-body-label)
@@ -202,7 +202,7 @@
 
 (defun compile-lang0-instruction (instr)
   (cond ((consp instr) (compile-lang0-call instr))
-	((numberp instr) (push `(LDC ,instr) *gcc-program*))
+	((numberp instr) (lang0-emit 'ldc instr))
 	((symbolp instr) (compile-l0-symbol-ref instr))
 	(t (error "unknown instruction ~a" instr))))
 
@@ -214,7 +214,7 @@
 (defun compile-l0-function-ref (sym)
   (let ((fun (assoc sym (append *functions* *lambdas*))))
     (when fun
-      (push `(ldf ,(l0-function-name (cdr fun))) *gcc-program*)
+      (lang0-emit 'ldf (l0-function-name (cdr fun)))
       t)))
 
 (defun get-variable-ref (sym)
@@ -246,14 +246,14 @@
 	    (dolist (arg (rest instr))
 	      ;(print arg)
 	      (compile-lang0-instruction arg))
-	    (push `(LDF ,(l0-function-name (cdr fun))) *gcc-program*)
-	    (push `(AP ,(length (l0-function-args (cdr fun)))) *gcc-program*))
+	    (lang0-emit 'ldf (l0-function-name (cdr fun)))
+	    (lang0-emit 'ap (length (l0-function-args (cdr fun))))
 	  (progn
 	    (dolist (arg (rest instr))
 	      (compile-lang0-instruction arg))
-	    (unless (compile-l0-variable-ref (first instr))
+	    (unless (compile-l0-symbol-ref (first instr))
 	      (error "unknown function ~a" (first instr)))
-	    (lang0-emit 'ap (length (rest instr))))))))
+	    (lang0-emit 'ap (length (rest instr)))))))))
 
 ;; Lang0 primitives
 
@@ -351,7 +351,7 @@
       (<= (compile-l0-binop '>= (second args) (first args))))))
 
 (defun compile-l0-goto (label)
-  (push '(ldc 1) *gcc-program*)
+  (lang0-emit 'ldc 1)
   (lang0-emit 'tsel label label))
 
 (defun compile-l0-binop (op first-arg second-arg)
@@ -366,7 +366,7 @@
 	 (opcode (assoc op op-map)))
     (compile-lang0-instruction first-arg)
     (compile-lang0-instruction second-arg)
-    (push (list (cdr opcode)) *gcc-program*)
+    (lang0-emit (cdr opcode))
     t))
 
 (defun compile-l0-if (condition then-body else-body)
@@ -378,14 +378,14 @@
     (push (lambda ()
 	    (lang0-mark-label then-label)
 	    (compile-lang0-instruction then-body)
-	    (push '(join) *gcc-program*))
+	    (lang0-emit 'join))
 	  *l0-delayed-code*)
 
     (push (lambda ()
 	    (lang0-mark-label else-label)
 	    (when else-body
 	      (compile-lang0-instruction else-body))
-	    (push '(join) *gcc-program*))
+	    (lang0-emit 'join))
 	  *l0-delayed-code*)
     t))
 
