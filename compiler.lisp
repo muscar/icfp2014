@@ -83,6 +83,9 @@
   name
   fields)
 
+(defun fresh-var (prefix)
+  (gensym prefix))
+
 (defun fundefp (form)
   (and (consp form) (eq (first form) 'defun)))
 
@@ -104,6 +107,19 @@
      when (and (consp instr) (eq (first instr) 'local))
      nconc (rest instr)))
 
+(defun add-local (fun name)
+  (push name (l0-function-locals fun))
+  (incf (l0-function-frame-size fun)))
+
+(defun arg-index (fun name)
+  (position name (l0-function-args fun)))
+
+(defun local-index (fun name)
+  (let ((local-index (position name (l0-function-locals fun))))
+    (when local-index
+      (+ (length (l0-function-args fun))
+	 local-index))))
+
 (defun collect-structs (structs)
   (setf *structs* (mapcar #'analyze-struct structs)))
 
@@ -122,6 +138,9 @@
     (unless field
       (error "struct ~a does not have a field ~a" (l0-struct-name struct) name))
     (cdr field)))
+
+(defun lang0-emit (opcode &rest operands)
+  (push (cons opcode operands) *gcc-program*))
 
 (defun lang0-compile-file (path)
   (with-open-file (in path)
@@ -184,14 +203,13 @@
 	(push `(AP ,(+ fun-arity (length (l0-function-locals (cdr fun))))) *gcc-program*)))))
 
 (defun symbol-index (sym)
-  (or (position sym (l0-function-args *l0-current-function*))
-      (+ (length (l0-function-args *l0-current-function*))
-	 (position sym (l0-function-locals *l0-current-function*)))))
+  (let ((index (or (arg-index *l0-current-function* sym)
+		   (local-index *l0-current-function* sym))))
+    (unless index
+      (error "symbol ~a is not bound" sym))
+    index))
 
 ;; Lang0 primitives
-
-(defun lang0-emit (opcode &rest operands)
-  (push (cons opcode operands) *gcc-program*))
 
 (defun lang0-prim-make-struct (name values)
   (let ((struct (cdr (assoc name *structs*))))
@@ -221,6 +239,37 @@
 	(lang0-emit 'cdr))
       (lang0-emit 'car))))
 
+(defun lang0-struct-field-set (name field-name value instance)
+  (let ((struct (cdr (assoc name *structs*))))
+    (unless struct
+      (error "unknown structure ~a" name))
+    (let* ((fields (l0-struct-fields struct))
+	   (fields-count (length fields))
+	   (field-index (cdr (assoc field-name fields))))
+      (unless field-index
+	(error "unknown field ~a" field-name))
+      (dotimes (idx fields-count)
+	(cond ((= idx field-index) (compile-lang0-instruction value))
+	      (t (compile-lang0-instruction instance)
+		 (dotimes (_ idx)
+		   (lang0-emit 'cdr))
+		 (lang0-emit 'car))))
+      ;; Emit NIL
+      (lang0-emit 'ldc 0)
+      (dotimes (idx fields-count)
+	(lang0-emit 'cons)))))
+
+(defun lang0-prim-set! (place value)
+  (cond ((symbolp place) (compile-lang0-instruction value)
+	                 (lang0-emit 'st 0 (symbol-index place)))
+	((and (consp place)
+	      (eq (first place) 'struct-field))
+	 (let ((var-slot (symbol-index (fourth place))))
+	   (unless var-slot
+	     (error "can only set fields of structs that are sotred in local variables"))
+	   (lang0-struct-field-set (second place) (third place) value (fourth place))
+	   (lang0-emit 'st 0 var-slot)))))
+
 (defun compile-lang0-prim (instr)
   (destructuring-bind (op &rest args) instr
     (case op
@@ -230,8 +279,7 @@
 		   t)
       (struct-field (lang0-prim-struct-field (first args) (second args) (third args))
 		    t)
-      (set! (compile-lang0-instruction (second args))
-	    (push `(st 0 ,(symbol-index (first args))) *gcc-program*)
+      (set! (lang0-prim-set! (first args) (second args))
 	    t)
       ((atom car cdr dbug) (compile-lang0-instruction (first args))
                            (push `(,op) *gcc-program*)
