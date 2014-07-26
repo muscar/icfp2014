@@ -1,13 +1,13 @@
-(defstruct point
-  x y z)
+;; (defstruct point
+;;   x y z)
 
-(defun test-make-struct ()
-  (local p)
-  (set! p (make-struct point 10 20 30))
-  (test-struct-field p))
+;; (defun test-make-struct ()
+;;   (local p)
+;;   (set! p (make-struct point 10 20 30))
+;;   (test-struct-field p))
 
-(defun test-struct-field (p)
-  (struct-field point z p))
+;; (defun test-struct-field (p)
+;;   (struct-field point z p))
 
 ;; (defun min (x y)
 ;;   (local p)
@@ -38,11 +38,6 @@
 ;; (defun add (x y)
 ;;   (+ x y))
 
-;; (defun fold (f xs)
-;;   (if (atom xs)
-;;       xs
-;;       (f (car xs) (fold f (cdr xs)))))
-
 ;; (defun log ()
 ;;   (dbug 42))
 
@@ -54,6 +49,23 @@
 ;;   (local (f (lambda (x) (+ x 1))))
 ;;   (dbug (f 10)))
 
+
+(defun null (l)
+  (if (atom l)
+      (= l 0)
+      0))
+
+(defun map (f xs)
+  (if (null xs)
+      xs
+      (cons (f (car xs)) (map f (cdr xs)))))
+
+(defun fold (f xs)
+  (if (atom xs)
+      xs
+      (f (car xs) (fold f (cdr xs)))))
+
+
 (defun main (state)
   ;; (dbug (fold (lambda (x y)
   ;; 		(+ x y))
@@ -61,7 +73,9 @@
   ;; (min (cons 10 20))
   ;; (locals 2 3)
   ;; (test-loop 12)
-  (test-make-struct)
+  ;; (test-make-struct)
   ;; (test-rec 3)
   ;; (test-lambda)
+  ;; (map (lambda (x) (+ x 1)) (list 1 2 3))
+  (dbug (car state))
   )

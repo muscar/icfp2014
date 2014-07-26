@@ -341,7 +341,7 @@
       (set! (lang0-prim-set! (first args) (second args))
 	    t)
       ((atom car cdr dbug) (compile-lang0-instruction (first args))
-                           (push `(,op) *gcc-program*)
+                           (lang0-emit op)
                            t)
       (if (compile-l0-if (first args) (second args) (third args)))
       (while (compile-l0-while (first args) (rest args)))
