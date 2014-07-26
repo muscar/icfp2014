@@ -15,6 +15,6 @@
   score)
 
 (defun ai-step-function (ai-state current-world-state)
-  (local (status (struct-field world-state lambdaman-status current-world-state)))
-  (dbug (struct-field lambdaman-status lives status))
+  (local (status (world-state.lambdaman-status current-world-state)))
+  (dbug (lambdaman-status.lives status))
   (cons 0 1))

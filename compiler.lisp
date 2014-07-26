@@ -3,6 +3,10 @@
 
 (in-package :icfp)
 
+(defun split-at (pos sequence)
+  (values (subseq sequence 0 pos)
+	  (subseq sequence (1+ pos))))
+
 (defun partition (pred sequence)
   (let (left right)
     (dolist (e sequence (values (nreverse left) (nreverse right)))
@@ -244,7 +248,6 @@
 		     fun-arity
 		     (length (rest instr))))
 	    (dolist (arg (rest instr))
-	      ;(print arg)
 	      (compile-lang0-instruction arg))
 	    (lang0-emit 'ldf (l0-function-name (cdr fun)))
 	    (lang0-emit 'ap (length (l0-function-args (cdr fun))))
@@ -348,7 +351,12 @@
       (begin (compile-l0-begin args))
       ((+ - * / = > >= cons) (compile-l0-binop op (first args) (second args)))
       (< (compile-l0-binop '> (second args) (first args)))
-      (<= (compile-l0-binop '>= (second args) (first args))))))
+      (<= (compile-l0-binop '>= (second args) (first args)))
+      (t (let ((pos (position #\. (symbol-name op))))
+	   (when pos
+	     (multiple-value-bind (struct field) (split-at pos (symbol-name op))
+	       (lang0-prim-struct-field (intern struct) (intern field) (first args))
+	       t)))))))
 
 (defun compile-l0-goto (label)
   (lang0-emit 'ldc 1)
