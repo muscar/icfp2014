@@ -7,13 +7,6 @@
   (values (subseq sequence 0 pos)
 	  (subseq sequence (1+ pos))))
 
-(defun partition (pred sequence)
-  (let (left right)
-    (dolist (e sequence (values (nreverse left) (nreverse right)))
-      (if (funcall pred e)
-	  (push e left)
-	  (push e right)))))
-
 (defparameter *gcc-program* '())
 
 ;; GCC assembly
@@ -71,11 +64,11 @@
 
 ;; Lang 0
 
+(defparameter *constants* '())
 (defparameter *functions* '())
 (defparameter *lambdas* '())
 (defparameter *structs* '())
 (defparameter *l0-current-function* nil)
-(defparameter *l0-delayed-code* nil)
 
 (defstruct l0-function
   name
@@ -95,8 +88,14 @@
 (defun fresh-var (prefix)
   (gensym prefix))
 
-(defun fundefp (form)
+(defun defun-p (form)
   (and (consp form) (eq (first form) 'defun)))
+
+(defun defstruct-p (form)
+  (and (consp form) (eq (first form) 'defstruct)))
+
+(defun defconstant-p (form)
+  (and (consp form) (eq (first form) 'defconstant)))
 
 (defun collect-functions (functions)
   (let ((funs (mapcar (lambda (fun) (analyze-function fun '())) functions)))
@@ -110,6 +109,12 @@
 				      :body '())))
       (setf (l0-function-body function) (collect-lambdas function body))
       (cons name function))))
+
+(defun add-constant (name value)
+  (cond
+    ((not (numberp value)) (error "constant ~a must be constant" name))
+    ((assoc name *constants*) (error "duplicate definition for constant ~a" name))
+    (t (push (cons name value) *constants*))))
 
 (defun add-local (fun local)
   (let* ((env (l0-function-env fun))
@@ -135,6 +140,10 @@
 
 (defun collect-structs (structs)
   (setf *structs* (mapcar #'analyze-struct structs)))
+
+(defun collect-constants (constants)
+  (dolist (constant constants)
+    (add-constant (second constant) (third constant))))
 
 (defun analyze-struct (struct)
   (destructuring-bind (name &rest fields) (cdr struct)
@@ -175,16 +184,13 @@
 	 (incf level))))
 
 (defun compile-l0-function (function)
-  (let ((*l0-delayed-code* '())
-	(function-body-label (intern (concatenate 'string (symbol-name (l0-function-name function)) "-BODY"))))
+  (let ((function-body-label (intern (concatenate 'string (symbol-name (l0-function-name function)) "-BODY"))))
     (lang0-emit 'rem function-body-label)
     (lang0-mark-label function-body-label)
     (dolist (instr (l0-function-body function))
       (compile-lang0-instruction instr))
     (lang0-emit 'rtn)
-    (lang0-generate-function-stub function function-body-label)
-    (dolist (codegen *l0-delayed-code*)
-      (funcall codegen))))
+    (lang0-generate-function-stub function function-body-label)))
 
 (defun lang0-generate-function-stub (function function-body-label)
   (lang0-emit 'rem (l0-function-name function))
@@ -197,13 +203,17 @@
 
 (defun compile-lang0 (program)
   (let ((*gcc-program* '())
+	(*constants* '())
 	(*functions* '())
 	(*lambdas* '())
 	(*structs* '()))
 
-    (multiple-value-bind (functions structs) (partition #'fundefp program)
+    (let ((functions (remove-if (complement #'defun-p) program))
+	  (structs (remove-if (complement #'defstruct-p) program))
+	  (constants (remove-if (complement #'defconstant-p) program)))
       (collect-functions functions)
       (collect-structs structs)
+      (collect-constants constants)
 
       ;; (format t "~a~%" *functions*)
 
@@ -226,9 +236,16 @@
 	(t (error "unknown instruction ~a" instr))))
 
 (defun compile-l0-symbol-ref (sym)
-  (or (compile-l0-variable-ref sym)
+  (or (compile-l0-constant-ref sym)
+      (compile-l0-variable-ref sym)
       (compile-l0-function-ref sym)
       (error "Undefined symbol ~a" sym)))
+
+(defun compile-l0-constant-ref (sym)
+  (let ((constant (assoc sym *constants*)))
+    (when constant
+	  (lang0-emit 'ldc (cdr constant))
+	  t)))
 
 (defun compile-l0-function-ref (sym)
   (let ((fun (assoc sym (append *functions* *lambdas*))))
@@ -358,6 +375,7 @@
                            (lang0-emit op)
                            t)
       (if (compile-l0-if (first args) (second args) (third args)))
+      (cond (compile-l0-cond args))
       (while (compile-l0-while (first args) (rest args)))
       (begin (compile-l0-begin args))
       ((+ - * / = > >= cons) (compile-l0-binop op (first args) (second args)))
@@ -392,22 +410,26 @@
 
 (defun compile-l0-if (condition then-body else-body)
   (let ((then-label (fresh-label "then"))
-	(else-label (fresh-label "else")))
+	(else-label (fresh-label "else"))
+	(after-label (fresh-label "after")))
     (compile-lang0-instruction condition)
-    (lang0-emit 'sel then-label else-label)
+    (lang0-emit 'tsel then-label else-label)
 
-    (push (lambda ()
-	    (lang0-mark-label then-label)
-	    (compile-lang0-instruction then-body)
-	    (lang0-emit 'join))
-	  *l0-delayed-code*)
+    (lang0-mark-label then-label)
+    (compile-lang0-instruction then-body)
+    (when else-body
+      (compile-l0-goto after-label))
 
-    (push (lambda ()
-	    (lang0-mark-label else-label)
-	    (when else-body
-	      (compile-lang0-instruction else-body))
-	    (lang0-emit 'join))
-	  *l0-delayed-code*)
+    (lang0-mark-label else-label)
+    (when else-body
+      (compile-lang0-instruction else-body)
+      (lang0-mark-label after-label))
+
+    t))
+
+(defun compile-l0-cond (conditions)
+  (if conditions
+    (compile-l0-if (caar conditions) (cons 'begin (cdar conditions)) `(cond ,@(cdr conditions)))
     t))
 
 (defun compile-l0-while (condition body)

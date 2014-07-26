@@ -50,15 +50,15 @@
 ;;   (dbug (f 10)))
 
 
-(defun null (l)
-  (if (atom l)
-      (= l 0)
-      0))
+;; (defun null (l)
+;;   (if (atom l)
+;;       (= l 0)
+;;       0))
 
-(defun map (f xs)
-  (if (null xs)
-      xs
-      (cons (f (car xs)) (map f (cdr xs)))))
+;; (defun map (f xs)
+;;   (if (null xs)
+;;       xs
+;;       (cons (f (car xs)) (map f (cdr xs)))))
 
 ;; (defun fold (f xs)
 ;;   (if (atom xs)
@@ -71,6 +71,9 @@
 ;;       (car list)
 ;;       (nth (- n 1) (cdr list))))
 
+(defconstant one 1)
+(defconstant two 2)
+
 (defun main ()
   ;; (dbug (fold (lambda (x y)
   ;; 		(+ x y))
@@ -81,8 +84,18 @@
   ;; (test-make-struct)
   ;; (test-rec 3)
   ;; (test-lambda)
-  (local (t 40))
-  (dbug t)
-  (map (lambda (x) (+ x t)) (list 1 2 3))
+  ;; (local (t 40))
+  ;; (dbug t)
+  ;; (map (lambda (x) (+ x t)) (list 1 2 3))
   ;; (nth 2 (list 1 2 3 4 5))
+  ;; (if (= 1 1)
+  ;;      (dbug 1)
+  ;;     (if (+ 1 1)
+  ;; 	  (dbug 3)
+  ;; 	  (dbug 4)))
+  ;; (cond
+  ;;   ((= 1 2) (dbug 1) (dbug 2))
+  ;;   (1 (dbug 3)))
+  (dbug one)
+  (dbug two)
   )
