@@ -50,23 +50,28 @@
 ;;   (dbug (f 10)))
 
 
-(defun null (l)
-  (if (atom l)
-      (= l 0)
-      0))
+;; (defun null (l)
+;;   (if (atom l)
+;;       (= l 0)
+;;       0))
 
-(defun map (f xs)
-  (if (null xs)
-      xs
-      (cons (f (car xs)) (map f (cdr xs)))))
+;; (defun map (f xs)
+;;   (if (null xs)
+;;       xs
+;;       (cons (f (car xs)) (map f (cdr xs)))))
 
-(defun fold (f xs)
-  (if (atom xs)
-      xs
-      (f (car xs) (fold f (cdr xs)))))
+;; (defun fold (f xs)
+;;   (if (atom xs)
+;;       xs
+;;       (f (car xs) (fold f (cdr xs)))))
 
+(defun nth (n list)
+;  (dbug n)
+  (if (or (<= n 0) (atom list))
+      (car list)
+      (nth (- n 1) (cdr list))))
 
-(defun main (state)
+(defun main ()
   ;; (dbug (fold (lambda (x y)
   ;; 		(+ x y))
   ;; 	      (list 1 2 3)))
@@ -77,5 +82,5 @@
   ;; (test-rec 3)
   ;; (test-lambda)
   ;; (map (lambda (x) (+ x 1)) (list 1 2 3))
-  (dbug (car state))
+  (nth 2 (list 1 2 3 4 5))
   )
