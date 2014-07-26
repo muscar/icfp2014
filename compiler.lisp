@@ -95,17 +95,11 @@
 (defun analyze-function (fun)
   (assert (fundefp fun) () "expecting function definition")
   (destructuring-bind (name args &rest body) (cdr fun)
-    (let ((locals (collect-locals body)))
-      (cons name (make-l0-function :name name
-				   :args args
-				   :locals locals
-				   :frame-size (+ (length args) (length locals))
-				   :body body)))))
-
-(defun collect-locals (body)
-  (loop for instr in body
-     when (and (consp instr) (eq (first instr) 'local))
-     nconc (rest instr)))
+    (cons name (make-l0-function :name name
+				 :args args
+				 :locals '()
+				 :frame-size (length args)
+				 :body body))))
 
 (defun add-local (fun name)
   (push name (l0-function-locals fun))
@@ -273,7 +267,9 @@
 (defun compile-lang0-prim (instr)
   (destructuring-bind (op &rest args) instr
     (case op
-      (local t)
+      (local (dolist (var args)
+	       (add-local *l0-current-function* var))
+	     t)
       (rem (lang0-emit 'rem (first args)))
       (make-struct (lang0-prim-make-struct (first args) (rest args))
 		   t)
