@@ -17,9 +17,9 @@
 ;; 	    y))
 ;;   p)
 
-;; (defun locals ()
-;;   (local x y)
-;;   (set! x 10)
+;; (defun locals (x y)
+;;   (local (x (+ x 1)) (y (+ y 1)))
+;;   ;; (set! x 10)
 ;;   (set! y 20)
 ;;   (+ x y))
 
@@ -35,13 +35,13 @@
 ;;       (dbug 42)
 ;;       (test-rec (- n 1))))
 
-(defun add (x y)
-  (+ x y))
+;; (defun add (x y)
+;;   (+ x y))
 
-(defun fold (f xs)
-  (if (atom xs)
-      xs
-      (f (car xs) (fold f (cdr xs)))))
+;; (defun fold (f xs)
+;;   (if (atom xs)
+;;       xs
+;;       (f (car xs) (fold f (cdr xs)))))
 
 ;; (defun log ()
 ;;   (dbug 42))
@@ -50,11 +50,17 @@
 ;;   (f)
 ;;   (f))
 
+
+(defun test-lambda ()
+  (local (f 10))
+  (dbug f))
+
 (defun main (state)
-  (dbug (fold add (cons 1 (cons 2 (cons 3 0)))))
-  ;; (test-closure log)
-  ;; (min 10 20)
+  ;; (dbug (fold add (cons 1 (cons 2 (cons 3 0)))))
+  ;; (min (cons 10 20))
+  ;; (locals 2 3)
   ;; (test-loop 12)
   ;; (test-make-struct)
   ;; (test-rec 3)
+  (test-lambda)
   )

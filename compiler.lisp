@@ -68,6 +68,7 @@
 ;; Lang 0
 
 (defparameter *functions* '())
+(defparameter *lambdas* '())
 (defparameter *structs* '())
 (defparameter *l0-current-function* nil)
 (defparameter *l0-delayed-code* nil)
@@ -83,6 +84,9 @@
   name
   fields)
 
+(defun fresh-var (prefix)
+  (gensym prefix))
+
 (defun fundefp (form)
   (and (consp form) (eq (first form) 'defun)))
 
@@ -90,19 +94,35 @@
   (setf *functions* (mapcar #'analyze-function functions)))
 
 (defun analyze-function (fun)
-  (assert (fundefp fun) () "expecting function definition")
+  (assert (fundefp fun) () "expecting function definition, but got ~a" fun)
   (destructuring-bind (name args &rest body) (cdr fun)
-    (let ((locals (collect-locals body)))
-      (cons name (make-l0-function :name name
-				   :args args
-				   :locals locals
-				   :frame-size (+ (length args) (length locals))
-				   :body body)))))
+    (cons name (make-l0-function :name name
+				 :args args
+				 :locals (make-array 16 :adjustable t :fill-pointer 0)
+				 :frame-size (length args)
+				 :body (collect-lambdas body)))))
 
-(defun collect-locals (body)
+(defun collect-lambdas (body)
   (loop for instr in body
-     when (and (consp instr) (eq (first instr) 'local))
-     nconc (rest instr)))
+     collect (cond ((atom instr) instr)
+		   ((eq (first instr) 'lambda) (let* ((lambda-name (fresh-var "$l"))
+						      (lifted-lambda `(defun ,lambda-name ,@(rest instr))))
+						 (push (analyze-function lifted-lambda) *lambdas*)
+						 lambda-name))
+		   (t (collect-lambdas instr)))))
+
+(defun add-local (fun name)
+  (vector-push-extend name (l0-function-locals fun))
+  (incf (l0-function-frame-size fun)))
+
+(defun arg-index (fun name)
+  (position name (l0-function-args fun)))
+
+(defun local-index (fun name)
+  (let ((local-index (position name (l0-function-locals fun))))
+    (when local-index
+      (+ (length (l0-function-args fun))
+	 local-index))))
 
 (defun collect-structs (structs)
   (setf *structs* (mapcar #'analyze-struct structs)))
@@ -122,6 +142,12 @@
     (unless field
       (error "struct ~a does not have a field ~a" (l0-struct-name struct) name))
     (cdr field)))
+
+(defun lang0-emit (opcode &rest operands)
+  (push (cons opcode operands) *gcc-program*))
+
+(defun lang0-mark-label (label)
+  (lang0-emit '$mark-label label))
 
 (defun lang0-compile-file (path)
   (with-open-file (in path)
@@ -150,22 +176,26 @@
 (defun compile-lang0 (program)
   (let ((*gcc-program* '())
 	(*functions* '())
+	(*lambdas* '())
 	(*structs* '()))
     (multiple-value-bind (functions structs) (partition #'fundefp program)
       (collect-functions functions)
       (collect-structs structs)
-      ;; Emit entry point
+
       (let ((main-function (cdr (assoc 'main *functions*))))
 	(unless main-function
 	  (error "no main function defined"))
-	(dotimes (idx (l0-function-frame-size main-function))
-	  (lang0-emit 'ldc 0))
-	(lang0-emit 'ldf 'main)
-	(lang0-emit 'ap (l0-function-frame-size main-function))
-	(lang0-emit 'rtn))
+	(lang0-emit-program-start main-function))
       
-      (dolist (*l0-current-function* (mapcar #'cdr *functions*) (compile-gcc (nreverse *gcc-program*)))
+      (dolist (*l0-current-function* (mapcar #'cdr (append *functions* *lambdas*)) (compile-gcc (nreverse *gcc-program*)))
 	(compile-l0-function *l0-current-function*)))))
+
+(defun lang0-emit-program-start (main-function)
+  (dotimes (idx (l0-function-frame-size main-function))
+    (lang0-emit 'ldc 0))
+  (lang0-emit 'ldf 'main)
+  (lang0-emit 'ap (l0-function-frame-size main-function))
+  (lang0-emit 'rtn))
 
 (defun compile-lang0-instruction (instr)
   (cond ((consp instr) (compile-lang0-call instr))
@@ -179,7 +209,7 @@
       (error "Undefined symbol ~a" sym)))
 
 (defun compile-l0-function-ref (sym)
-  (let ((fun (assoc sym *functions*)))
+  (let ((fun (assoc sym (append *functions* *lambdas*))))
     (when fun
       (push `(ldf ,(l0-function-name (cdr fun))) *gcc-program*)
       t)))
@@ -224,9 +254,6 @@
 
 ;; Lang0 primitives
 
-(defun lang0-emit (opcode &rest operands)
-  (push (cons opcode operands) *gcc-program*))
-
 (defun lang0-prim-make-struct (name values)
   (let ((struct (cdr (assoc name *structs*))))
     (unless struct
@@ -255,21 +282,56 @@
 	(lang0-emit 'cdr))
       (lang0-emit 'car))))
 
+(defun lang0-struct-field-set (name field-name value instance)
+  (let ((struct (cdr (assoc name *structs*))))
+    (unless struct
+      (error "unknown structure ~a" name))
+    (let* ((fields (l0-struct-fields struct))
+	   (fields-count (length fields))
+	   (field-index (cdr (assoc field-name fields))))
+      (unless field-index
+	(error "unknown field ~a" field-name))
+      (dotimes (idx fields-count)
+	(cond ((= idx field-index) (compile-lang0-instruction value))
+	      (t (compile-lang0-instruction instance)
+		 (dotimes (_ idx)
+		   (lang0-emit 'cdr))
+		 (lang0-emit 'car))))
+      ;; Emit NIL
+      (lang0-emit 'ldc 0)
+      (dotimes (idx fields-count)
+	(lang0-emit 'cons)))))
+
+(defun lang0-prim-set! (place value)
+  (cond ((symbolp place) (multiple-value-bind (level idx) (get-variable-ref place)
+			   (compile-lang0-instruction value)
+			   (unless level
+			     (error "undefined set place ~a" place))
+			   (lang0-emit 'st level idx)))
+	((and (consp place)
+	      (eq (first place) 'struct-field))
+	 (multiple-value-bind (level idx) (get-variable-ref (fourth place))
+	   (unless level
+	     (error "can only set fields of structs that are sotred in local variables"))
+	   (lang0-struct-field-set (second place) (third place) value (fourth place))
+	   (lang0-emit 'st level idx)))))
+
 (defun compile-lang0-prim (instr)
   (destructuring-bind (op &rest args) instr
     (case op
-      (local t)
+      (local (dolist (var args)
+	       (cond ((symbolp var) (add-local *l0-current-function* var))
+		     ((consp var) (add-local *l0-current-function* (first var))
+		                  (lang0-prim-set! (first var) (second var)))
+		     (t (error "malformed local binding ~a" var))))
+	     t)
       (rem (lang0-emit 'rem (first args)))
       (make-struct (lang0-prim-make-struct (first args) (rest args))
 		   t)
       (struct-field (lang0-prim-struct-field (first args) (second args) (third args))
 		    t)
-      (set! (compile-lang0-instruction (second args))
-	      (multiple-value-bind (level idx) (get-variable-ref (first args))
-		(unless level
-		  (error "Undefined set place ~a" (first args)))
-		(lang0-emit 'st level idx)
-		t))
+      (set! (lang0-prim-set! (first args) (second args))
+	    t)
       ((atom car cdr dbug) (compile-lang0-instruction (first args))
                            (push `(,op) *gcc-program*)
                            t)
@@ -282,7 +344,7 @@
 
 (defun compile-l0-goto (label)
   (push '(ldc 1) *gcc-program*)
-  (push `(tsel ,label ,label) *gcc-program*))
+  (lang0-emit 'tsel label label))
 
 (defun compile-l0-binop (op first-arg second-arg)
   (let* ((op-map '((+ . add)
@@ -303,16 +365,16 @@
   (let ((then-label (fresh-label "then"))
 	(else-label (fresh-label "else")))
     (compile-lang0-instruction condition)
-    (push `(sel ,then-label ,else-label) *gcc-program*)
+    (lang0-emit 'sel then-label else-label)
 
     (push (lambda ()
-	    (push `($mark-label ,then-label) *gcc-program*)
+	    (lang0-mark-label then-label)
 	    (compile-lang0-instruction then-body)
 	    (push '(join) *gcc-program*))
 	  *l0-delayed-code*)
 
     (push (lambda ()
-	    (push `($mark-label ,else-label) *gcc-program*)
+	    (lang0-mark-label else-label)
 	    (when else-body
 	      (compile-lang0-instruction else-body))
 	    (push '(join) *gcc-program*))
@@ -323,14 +385,14 @@
   (let ((head-label (fresh-label "while-head-label"))
 	(body-label (fresh-label "while-body-label"))
 	(end-label (fresh-label "while-end-label")))
-    (push `($mark-label ,head-label) *gcc-program*)
+    (lang0-mark-label head-label)
     (compile-lang0-instruction condition)
-    (push `(tsel ,body-label ,end-label) *gcc-program*)
-    (push `($mark-label ,body-label) *gcc-program*)
+    (lang0-emit 'tsel body-label end-label)
+    (lang0-mark-label body-label)
     (dolist (instr body)
       (compile-lang0-instruction instr))
     (compile-l0-goto head-label)
-    (push `($mark-label ,end-label) *gcc-program*))
+    (lang0-mark-label end-label))
   t)
 
 (defun compile-l0-begin (body)
