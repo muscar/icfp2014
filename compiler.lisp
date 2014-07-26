@@ -203,11 +203,8 @@
 	(push `(AP ,(+ fun-arity (length (l0-function-locals (cdr fun))))) *gcc-program*)))))
 
 (defun symbol-index (sym)
-  (let ((index (or (arg-index *l0-current-function* sym)
-		   (local-index *l0-current-function* sym))))
-    (unless index
-      (error "symbol ~a is not bound" sym))
-    index))
+  (or (arg-index *l0-current-function* sym)
+      (local-index *l0-current-function* sym)))
 
 ;; Lang0 primitives
 
@@ -260,8 +257,11 @@
 	(lang0-emit 'cons)))))
 
 (defun lang0-prim-set! (place value)
-  (cond ((symbolp place) (compile-lang0-instruction value)
-	                 (lang0-emit 'st 0 (symbol-index place)))
+  (cond ((symbolp place) (let ((index (symbol-index place)))
+			   (unless index
+			     (error "symbol ~a is not bound" place))
+			   (compile-lang0-instruction value)
+			   (lang0-emit 'st 0 )))
 	((and (consp place)
 	      (eq (first place) 'struct-field))
 	 (let ((var-slot (symbol-index (fourth place))))
