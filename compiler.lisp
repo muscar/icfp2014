@@ -212,12 +212,12 @@
 	  (error "no main function defined"))
 	(lang0-emit-program-start main-function))
       
-      (dolist (*l0-current-function* (mapcar #'cdr (append *functions* *lambdas*)) (compile-gcc (nreverse *gcc-program*)))
-	(compile-l0-function *l0-current-function*)))))
+      (let ((functions (mapcar #'cdr (append *functions* *lambdas*))))
+	(dolist (*l0-current-function* functions (compile-gcc (nreverse *gcc-program*)))
+	  (compile-l0-function *l0-current-function*))))))
 
 (defun lang0-emit-program-start (main-function)
-  (compile-lang0-call (list (l0-function-name main-function)))
-  (lang0-emit 'rtn))
+  (compile-l0-goto (l0-function-name main-function)))
 
 (defun compile-lang0-instruction (instr)
   (cond ((consp instr) (compile-lang0-call instr))
