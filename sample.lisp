@@ -2,8 +2,7 @@
   x y z)
 
 (defun test-make-struct ()
-  (local p)
-  (set! p (make-struct point 10 20 0))
+  (local (p (make-struct point 10 20 0)))
   (set! (struct-field point z p) 30)
   (test-struct-field p))
 
@@ -21,12 +20,12 @@
   (set! y 20)
   (+ x y))
 
-;; (defun test-loop (n)
-;;   (local x)
-;;   (while (> n 0)
-;;     (set! n (- n 1))
-;;     (set! x (+ x 2)))
-;;   x)
+(defun test-loop (n)
+  (local x)
+  (while (> n 0)
+    (set! n (- n 1))
+    (set! x (+ x 2)))
+  x)
 
 ;; (defun test-rec (n)
 ;;   (if (= n 0)
@@ -35,8 +34,8 @@
 
 (defun main (state)
   ;; (min (cons 10 20))
-  (locals 2 3)
-  ;; (test-loop 12)
+  ;; (locals 2 3)
+  (test-loop 12)
   ;; (test-make-struct)
   ;; (test-rec 3)
   )

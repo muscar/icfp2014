@@ -136,6 +136,9 @@
 (defun lang0-emit (opcode &rest operands)
   (push (cons opcode operands) *gcc-program*))
 
+(defun lang0-mark-label (label)
+  (lang0-emit '$mark-label label))
+
 (defun lang0-compile-file (path)
   (with-open-file (in path)
     (do (program
@@ -163,7 +166,7 @@
       (dolist (*l0-current-function* (mapcar #'cdr *functions*) (compile-gcc (nreverse *gcc-program*)))
 	(let ((*l0-delayed-code* '()))
 	  (lang0-emit 'rem (l0-function-name *l0-current-function*))
-	  (lang0-emit '$mark-label (l0-function-name *l0-current-function*))
+	  (lang0-mark-label (l0-function-name *l0-current-function*))
 	  (dolist (instr (l0-function-body *l0-current-function*))
 	    (compile-lang0-instruction instr))
 	  (push '(RTN) *gcc-program*)
@@ -316,13 +319,13 @@
     (lang0-emit 'sel then-label else-label)
 
     (push (lambda ()
-	    (lang0-emit '$mark-label then-label)
+	    (lang0-mark-label then-label)
 	    (compile-lang0-instruction then-body)
 	    (push '(join) *gcc-program*))
 	  *l0-delayed-code*)
 
     (push (lambda ()
-	    (lang0-emit '$mark-label else-label)
+	    (lang0-mark-label else-label)
 	    (when else-body
 	      (compile-lang0-instruction else-body))
 	    (push '(join) *gcc-program*))
@@ -333,14 +336,14 @@
   (let ((head-label (fresh-label "while-head-label"))
 	(body-label (fresh-label "while-body-label"))
 	(end-label (fresh-label "while-end-label")))
-    (lang0-emit '$mark-label head-label)
+    (lang0-mark-label head-label)
     (compile-lang0-instruction condition)
     (lang0-emit 'tsel body-label end-label)
-    (lang0-emit '$mark-label body-label)
+    (lang0-mark-label body-label)
     (dolist (instr body)
       (compile-lang0-instruction instr))
     (compile-l0-goto head-label)
-    (lang0-emit '$mark-label end-label))
+    (lang0-mark-label end-label))
   t)
 
 (defun compile-l0-begin (body)
