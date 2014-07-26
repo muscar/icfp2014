@@ -18,7 +18,7 @@
 (defun locals (x y)
   (local (x (+ x 1)) (y (+ y 1)))
   ;; (set! x 10)
-  ;; (set! y 20)
+  (set! y 20)
   (+ x y))
 
 ;; (defun test-loop (n)
