@@ -85,7 +85,8 @@
 (defun collect-functions (program)
   (dolist (fun program)
     (destructuring-bind (name args &rest body) (cdr fun)
-      (assert (eq (car fun) 'defun) () "expecting function definition")
+      (unless (eq (car fun) 'defun)
+	(error "expected function definition at top-level; found ~a" (car fun)))
       (push (cons name (make-l0-function :name name
 					 :args args
 					 :locals (collect-locals body)
@@ -116,14 +117,16 @@
 	(t (error "unknown instruction ~a" instr))))
 
 (defun compile-lang0-call (instr)
-  (assert (symbolp (first instr)) () "call operator is not a symbol ~a" (first instr))
+  (unless (symbolp (first instr))
+    (error "call operator ~a is not a symbol" (first instr)))
   (unless (compile-lang0-prim instr)
     (let ((fun (assoc (first instr) *functions*)))
       (unless fun
 	(error "unknown function ~a" (first instr)))
       (let ((fun-arity (length (l0-function-args (cdr fun)))))
 	(unless (= (length (rest instr)) fun-arity)
-	  (error "wrong arity; expecting ~a args but got ~a"
+	  (error "wrong argument count for ~a; expecting ~a args but got ~a"
+		 (car fun)
 		 fun-arity
 		 (length (rest instr))))
 	(dolist (arg (rest instr))
