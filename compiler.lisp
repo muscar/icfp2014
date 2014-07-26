@@ -250,13 +250,13 @@
 	    (dolist (arg (rest instr))
 	      (compile-lang0-instruction arg))
 	    (lang0-emit 'ldf (l0-function-name (cdr fun)))
-	    (lang0-emit 'ap (length (l0-function-args (cdr fun))))
+	    (lang0-emit 'ap (length (l0-function-args (cdr fun)))))
 	  (progn
 	    (dolist (arg (rest instr))
 	      (compile-lang0-instruction arg))
 	    (unless (compile-l0-symbol-ref (first instr))
 	      (error "unknown function ~a" (first instr)))
-	    (lang0-emit 'ap (length (rest instr)))))))))
+	    (lang0-emit 'ap (length (rest instr))))))))
 
 ;; Lang0 primitives
 
