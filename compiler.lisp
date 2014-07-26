@@ -130,6 +130,23 @@
 	((null form) (compile-lang0 (nreverse program)))
       (push form program))))
 
+(defun compile-l0-function (function)
+  (let ((*l0-delayed-code* '())
+	(function-body (intern (concatenate 'string (symbol-name (l0-function-name function)) "-BODY"))))
+    (lang0-emit 'rem (l0-function-name function))
+    (push `($mark-label ,(l0-function-name function)) *gcc-program*)
+    (dotimes (idx (length (l0-function-locals function)))
+      (lang0-emit 'ldc 0))
+    (lang0-emit 'ldf function-body)
+    (lang0-emit 'tap (length (l0-function-locals function)))
+    (lang0-emit 'rem function-body)
+    (push `($mark-label ,function-body) *gcc-program*)
+    (dolist (instr (l0-function-body function))
+      (compile-lang0-instruction instr))
+    (push '(rtn) *gcc-program*)
+    (dolist (codegen *l0-delayed-code*)
+      (funcall codegen))))
+
 (defun compile-lang0 (program)
   (let ((*gcc-program* '())
 	(*functions* '())
@@ -148,45 +165,62 @@
 	(lang0-emit 'rtn))
       
       (dolist (*l0-current-function* (mapcar #'cdr *functions*) (compile-gcc (nreverse *gcc-program*)))
-	(let ((*l0-delayed-code* '()))
-	  (lang0-emit 'rem (l0-function-name *l0-current-function*))
-	  (push `($mark-label ,(l0-function-name *l0-current-function*)) *gcc-program*)
-	  (dolist (instr (l0-function-body *l0-current-function*))
-	    (compile-lang0-instruction instr))
-	  (push '(RTN) *gcc-program*)
-	  (dolist (codegen *l0-delayed-code*)
-	    (funcall codegen)))))))
+	(compile-l0-function *l0-current-function*)))))
 
 (defun compile-lang0-instruction (instr)
   (cond ((consp instr) (compile-lang0-call instr))
 	((numberp instr) (push `(LDC ,instr) *gcc-program*))
-	((symbolp instr) (push `(LD 0 ,(symbol-index instr)) *gcc-program*))
+	((symbolp instr) (compile-l0-symbol-ref instr))
 	(t (error "unknown instruction ~a" instr))))
+
+(defun compile-l0-symbol-ref (sym)
+  (or (compile-l0-variable-ref sym)
+      (compile-l0-function-ref sym)
+      (error "Undefined symbol ~a" sym)))
+
+(defun compile-l0-function-ref (sym)
+  (let ((fun (assoc sym *functions*)))
+    (when fun
+      (push `(ldf ,(l0-function-name (cdr fun))) *gcc-program*)
+      t)))
+
+(defun get-variable-ref (sym)
+  (let ((local-idx (position sym (l0-function-locals *l0-current-function*))))
+    (if local-idx
+	(values 0 local-idx)
+	(let ((arg-idx (position sym (l0-function-args *l0-current-function*))))
+	  (when arg-idx
+	      (values 1 arg-idx))))))
+
+(defun compile-l0-variable-ref (sym)
+  (multiple-value-bind (level idx) (get-variable-ref sym)
+    (when level
+      (lang0-emit 'ld level idx)
+      t)))
 
 (defun compile-lang0-call (instr)
   (unless (symbolp (first instr))
     (error "call operator ~a is not a symbol" (first instr)))
   (unless (compile-lang0-prim instr)
     (let ((fun (assoc (first instr) *functions*)))
-      (unless fun
-	(error "unknown function ~a" (first instr)))
-      (let ((fun-arity (length (l0-function-args (cdr fun)))))
-	(unless (= (length (rest instr)) fun-arity)
-	  (error "wrong argument count for ~a; expecting ~a args but got ~a"
-		 (car fun)
-		 fun-arity
-		 (length (rest instr))))
-	(dolist (arg (rest instr))
-	  (compile-lang0-instruction arg))
-	(dotimes (idx (length (l0-function-locals (cdr fun))))
-	  (push `(LDC 0) *gcc-program*))
-	(push `(LDF ,(l0-function-name (cdr fun))) *gcc-program*)
-	(push `(AP ,(+ fun-arity (length (l0-function-locals (cdr fun))))) *gcc-program*)))))
-
-(defun symbol-index (sym)
-  (or (position sym (l0-function-args *l0-current-function*))
-      (+ (length (l0-function-args *l0-current-function*))
-	 (position sym (l0-function-locals *l0-current-function*)))))
+      (if fun
+	  (let ((fun-arity (length (l0-function-args (cdr fun)))))
+	    (unless (= (length (rest instr)) fun-arity)
+	      (error "wrong argument count for ~a; expecting ~a args but got ~a"
+		     (car fun)
+		     fun-arity
+		     (length (rest instr))))
+	    (dolist (arg (rest instr))
+	      ;(print arg)
+	      (compile-lang0-instruction arg))
+	    (push `(LDF ,(l0-function-name (cdr fun))) *gcc-program*)
+	    (push `(AP ,(length (l0-function-args (cdr fun)))) *gcc-program*))
+	  (progn
+	    (dolist (arg (rest instr))
+	      (compile-lang0-instruction arg))
+	    (unless (compile-l0-variable-ref (first instr))
+	      (error "unknown function ~a" (first instr)))
+	    (lang0-emit 'ap (length (rest instr))))))))
 
 ;; Lang0 primitives
 
@@ -231,8 +265,11 @@
       (struct-field (lang0-prim-struct-field (first args) (second args) (third args))
 		    t)
       (set! (compile-lang0-instruction (second args))
-	    (push `(st 0 ,(symbol-index (first args))) *gcc-program*)
-	    t)
+	      (multiple-value-bind (level idx) (get-variable-ref (first args))
+		(unless level
+		  (error "Undefined set place ~a" (first args)))
+		(lang0-emit 'st level idx)
+		t))
       ((atom car cdr dbug) (compile-lang0-instruction (first args))
                            (push `(,op) *gcc-program*)
                            t)

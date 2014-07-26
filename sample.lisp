@@ -1,19 +1,21 @@
-(defstruct point
-  x y z)
+;; (defstruct point
+;;   x y z)
 
-(defun test-make-struct ()
-  (local p)
-  (set! p (make-struct point 10 20 30))
-  (test-struct-field p))
+;; (defun test-make-struct ()
+;;   (local p)
+;;   (set! p (make-struct point 10 20 30))
+;;   (test-struct-field p))
 
-(defun test-struct-field (p)
-  (struct-field point z p))
+;; (defun test-struct-field (p)
+;;   (struct-field point z p))
 
-;; (defun min (cell)
-;;   (if (< (car cell) (cdr cell))
-;;       (car cell)
-;;       (cdr cell))
-;;   1337)
+;; (defun min (x y)
+;;   (local p)
+;;   (set! p
+;; 	(if (< x y)
+;; 	    x
+;; 	    y))
+;;   p)
 
 ;; (defun locals ()
 ;;   (local x y)
@@ -28,14 +30,31 @@
 ;;     (set! x (+ x 2)))
 ;;   x)
 
-(defun test-rec (n)
-  (if (= n 0)
-      (dbug 42)
-      (test-rec (- n 1))))
+;; (defun test-rec (n)
+;;   (if (= n 0)
+;;       (dbug 42)
+;;       (test-rec (- n 1))))
+
+(defun add (x y)
+  (+ x y))
+
+(defun fold (f xs)
+  (if (atom xs)
+      xs
+      (f (car xs) (fold f (cdr xs)))))
+
+;; (defun log ()
+;;   (dbug 42))
+
+;; (defun test-closure (f)
+;;   (f)
+;;   (f))
 
 (defun main (state)
-  ;; (min (cons 10 20))
+  (dbug (fold add (cons 1 (cons 2 (cons 3 0)))))
+  ;; (test-closure log)
+  ;; (min 10 20)
   ;; (test-loop 12)
-  (test-make-struct)
+  ;; (test-make-struct)
   ;; (test-rec 3)
   )
