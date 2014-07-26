@@ -15,10 +15,10 @@
       (car cell)
       (cdr cell)))
 
-(defun locals ()
-  (local x y)
-  (set! x 10)
-  (set! y 20)
+(defun locals (x y)
+  (local (x (+ x 1)) (y (+ y 1)))
+  ;; (set! x 10)
+  ;; (set! y 20)
   (+ x y))
 
 ;; (defun test-loop (n)
@@ -35,7 +35,7 @@
 
 (defun main (state)
   ;; (min (cons 10 20))
-  (locals)
+  (locals 2 3)
   ;; (test-loop 12)
   ;; (test-make-struct)
   ;; (test-rec 3)

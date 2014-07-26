@@ -97,12 +97,12 @@
   (destructuring-bind (name args &rest body) (cdr fun)
     (cons name (make-l0-function :name name
 				 :args args
-				 :locals '()
+				 :locals (make-array 16 :adjustable t :fill-pointer 0)
 				 :frame-size (length args)
 				 :body body))))
 
 (defun add-local (fun name)
-  (push name (l0-function-locals fun))
+  (vector-push-extend name (l0-function-locals fun))
   (incf (l0-function-frame-size fun)))
 
 (defun arg-index (fun name)
@@ -268,7 +268,10 @@
   (destructuring-bind (op &rest args) instr
     (case op
       (local (dolist (var args)
-	       (add-local *l0-current-function* var))
+	       (cond ((symbolp var) (add-local *l0-current-function* var))
+		     ((consp var) (add-local *l0-current-function* (first var))
+		                  (lang0-prim-set! (first var) (second var)))
+		     (t (error "malformed local binding ~a" var))))
 	     t)
       (rem (lang0-emit 'rem (first args)))
       (make-struct (lang0-prim-make-struct (first args) (rest args))
