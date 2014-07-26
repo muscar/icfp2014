@@ -79,10 +79,14 @@
 
 (defstruct l0-function
   name
-  args
-  locals
-  frame-size
+  env
   body)
+
+(defun l0-function-args (fun)
+  (cadr (l0-function-env fun)))
+
+(defun l0-function-locals (fun)
+  (car (l0-function-env fun)))
 
 (defstruct l0-struct
   name
@@ -95,38 +99,39 @@
   (and (consp form) (eq (first form) 'defun)))
 
 (defun collect-functions (functions)
-  (setf *functions* (mapcar #'analyze-function functions)))
+  (let ((funs (mapcar (lambda (fun) (analyze-function fun '())) functions)))
+    (setf *functions* funs)))
 
-(defun analyze-function (fun)
+(defun analyze-function (fun env)
   (assert (fundefp fun) () "expecting function definition, but got ~a" fun)
   (destructuring-bind (name args &rest body) (cdr fun)
-    (cons name (make-l0-function :name name
-				 :args args
-				 :locals (make-array 16 :adjustable t :fill-pointer 0)
-				 :frame-size (length args)
-				 :body (collect-lambdas body)))))
+    (let ((function (make-l0-function :name name
+				      :env (cons '() (cons args env))
+				      :body '())))
+      (setf (l0-function-body function) (collect-lambdas function body))
+      (cons name function))))
 
-(defun collect-lambdas (body)
+(defun add-local (fun local)
+  (let* ((env (l0-function-env fun))
+	 (new-env (cons (cons local (car env)) (cdr env))))
+    (setf (l0-function-env fun) new-env)))
+
+(defun collect-locals (fun locals)
+  (loop for local in locals collect
+       (cond ((atom local) (add-local fun local)
+	                   local)
+	     (t (add-local fun (car local))
+		(collect-lambdas fun local)))))
+
+(defun collect-lambdas (fun body)
   (loop for instr in body
      collect (cond ((atom instr) instr)
 		   ((eq (first instr) 'lambda) (let* ((lambda-name (fresh-var "$l"))
 						      (lifted-lambda `(defun ,lambda-name ,@(rest instr))))
-						 (push (analyze-function lifted-lambda) *lambdas*)
+						 (push (analyze-function lifted-lambda (l0-function-env fun)) *lambdas*)
 						 lambda-name))
-		   (t (collect-lambdas instr)))))
-
-(defun add-local (fun name)
-  (vector-push-extend name (l0-function-locals fun))
-  (incf (l0-function-frame-size fun)))
-
-(defun arg-index (fun name)
-  (position name (l0-function-args fun)))
-
-(defun local-index (fun name)
-  (let ((local-index (position name (l0-function-locals fun))))
-    (when local-index
-      (+ (length (l0-function-args fun))
-	 local-index))))
+		   ((eq (first instr) 'local) (cons 'local (collect-locals fun (rest instr))))
+		   (t (collect-lambdas fun instr)))))
 
 (defun collect-structs (structs)
   (setf *structs* (mapcar #'analyze-struct structs)))
@@ -160,6 +165,15 @@
 	((null form) (compile-lang0 (nreverse program)))
       (push form program))))
 
+(defun lookup-env (sym)
+  (let ((level 0))
+    (loop
+       for env in (l0-function-env *l0-current-function*) do
+	 (let ((idx (position sym env)))
+	   (when idx
+	     (return (cons level idx))))
+	 (incf level))))
+
 (defun compile-l0-function (function)
   (let ((*l0-delayed-code* '())
 	(function-body-label (intern (concatenate 'string (symbol-name (l0-function-name function)) "-BODY"))))
@@ -175,19 +189,23 @@
 (defun lang0-generate-function-stub (function function-body-label)
   (lang0-emit 'rem (l0-function-name function))
   (lang0-mark-label (l0-function-name function))
-  (dotimes (idx (length (l0-function-locals function)))
-    (lang0-emit 'ldc 0))
-  (lang0-emit 'ldf function-body-label)
-  (lang0-emit 'tap (length (l0-function-locals function))))
+  (let ((num-locals (length (l0-function-locals function))))
+    (dotimes (idx num-locals)
+      (lang0-emit 'ldc 0))
+    (lang0-emit 'ldf function-body-label)
+    (lang0-emit 'tap num-locals)))
 
 (defun compile-lang0 (program)
   (let ((*gcc-program* '())
 	(*functions* '())
 	(*lambdas* '())
 	(*structs* '()))
+
     (multiple-value-bind (functions structs) (partition #'fundefp program)
       (collect-functions functions)
       (collect-structs structs)
+
+      ;; (format t "~a~%" *functions*)
 
       (let ((main-function (cdr (assoc 'main *functions*))))
 	(unless main-function
@@ -198,10 +216,7 @@
 	(compile-l0-function *l0-current-function*)))))
 
 (defun lang0-emit-program-start (main-function)
-  (dotimes (idx (l0-function-frame-size main-function))
-    (lang0-emit 'ldc 0))
-  (lang0-emit 'ldf 'main)
-  (lang0-emit 'ap (l0-function-frame-size main-function))
+  (compile-lang0-call (list (l0-function-name main-function)))
   (lang0-emit 'rtn))
 
 (defun compile-lang0-instruction (instr)
@@ -222,12 +237,9 @@
       t)))
 
 (defun get-variable-ref (sym)
-  (let ((local-idx (position sym (l0-function-locals *l0-current-function*))))
-    (if local-idx
-	(values 0 local-idx)
-	(let ((arg-idx (position sym (l0-function-args *l0-current-function*))))
-	  (when arg-idx
-	      (values 1 arg-idx))))))
+  (let ((pos (lookup-env sym)))
+    (when pos
+      (values (car pos) (cdr pos)))))
 
 (defun compile-l0-variable-ref (sym)
   (multiple-value-bind (level idx) (get-variable-ref sym)
@@ -250,7 +262,7 @@
 	    (dolist (arg (rest instr))
 	      (compile-lang0-instruction arg))
 	    (lang0-emit 'ldf (l0-function-name (cdr fun)))
-	    (lang0-emit 'ap (length (l0-function-args (cdr fun)))))
+	    (lang0-emit 'ap (length (rest instr))))
 	  (progn
 	    (dolist (arg (rest instr))
 	      (compile-lang0-instruction arg))
@@ -329,9 +341,8 @@
   (destructuring-bind (op &rest args) instr
     (case op
       (local (dolist (var args)
-	       (cond ((symbolp var) (add-local *l0-current-function* var))
-		     ((consp var) (add-local *l0-current-function* (first var))
-		                  (lang0-prim-set! (first var) (second var)))
+	       (cond ((symbolp var))
+		     ((consp var) (lang0-prim-set! (first var) (second var)))
 		     (t (error "malformed local binding ~a" var))))
 	     t)
       (list (lang0-prim-list args)
