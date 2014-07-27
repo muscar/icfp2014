@@ -394,6 +394,8 @@
       (and (compile-l0-if (first args) (second args) 0))
       (or (compile-l0-if (first args) 1 (second args)))
       (not (compile-l0-if (first args) 0 1))
+      (incf (compile-l0-incf (first args)))
+      (decf (compile-l0-decf (first args)))
       (t (let ((pos (position #\. (symbol-name op))))
 	   (when pos
 	     (multiple-value-bind (struct field) (split-at pos (symbol-name op))
@@ -467,3 +469,9 @@
 
 (defun compile-l0-unless (condition body)
   (compile-l0-if `(not ,condition) `(begin ,@body) nil))
+
+(defun compile-l0-incf (place)
+  (lang0-prim-set! place `(+ ,place 1)))
+
+(defun compile-l0-decf (place)
+  (lang0-prim-set! place `(- ,place 1)))
