@@ -250,7 +250,7 @@
 	  (unless main-function
 	    (error "no main function defined"))
 	  (lang0-emit-program-start main-function))
-      
+
 	(let ((functions (mapcar #'cdr (append *functions* *lambdas*))))
 	  (dolist (*l0-current-function* functions (compile-gcc (nreverse *gcc-program*)))
 	    (compile-l0-function *l0-current-function*)))))))

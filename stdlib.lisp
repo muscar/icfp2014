@@ -4,11 +4,14 @@
 (defconstant t 1)
 
 (defun eql (x y)
-  (or (and (atom x)
-	   (atom y)
-	   (= x y))
-      (and (eql (car x) (car y))
-	   (eql (cdr x) (cdr y)))))
+  (if (atom x)
+      (if (atom y)
+	  (= x y)
+	  nil)
+      (if (atom y)
+	  nil
+	  (and (eql (car x) (car y))
+	       (eql (cdr x) (cdr y))))))
 
 (defun null (thing)
   (and (atom thing) (= thing 0)))
@@ -98,3 +101,10 @@
 
 (defun priority-queue-search (queue key)
   (assoc key queue))
+
+;; Math
+
+(defun abs (n)
+  (if (< n 0)
+      (- 0 n)
+      n))
