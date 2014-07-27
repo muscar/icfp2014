@@ -110,11 +110,36 @@
     (set! current-location (location-for-direction current-location direction)))
   result)
 
+(defun get-span-score (span)
+  (local score)
+  (while (and (not (null span))
+	      (not (= (car span) wall)))
+    (set! score (+ score (cell-score (car span))))
+    (set! span (cdr span)))
+  score)
+
+(defun get-direction-scores (map transposed-map location)
+  (local (spans (split-at-pos map transposed-map (car location) (cdr location)))
+	 left-span right-span up-span down-span)
+  (dbug 1)
+  (set! left-span (cadr spans))
+  (set! right-span (caddr spans))
+  (set! up-span (cadddr spans))
+  (set! down-span (caddddr spans))
+  (dbug 2)
+
+  (list (cons left (get-span-score left-span))
+	(cons right (get-span-score right-span))
+	(cons up (get-span-score up-span))
+	(cons down (get-span-score down-span))))
+
 (defun choose-next-direction (map choices location direction)
   (local (possible-moves (filter (lambda (direction)
 				   (can-move map location direction))
 				 (list right left up down)
 				 nil)))
+  (dbug (get-direction-scores map (transpose map) location))
+
   ;; (dbug possible-moves)
   
   (local (best-move (foldl (lambda (current-direction candidate-direction)

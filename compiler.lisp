@@ -534,3 +534,4 @@
 	     (dotimes (idx (- count 1))
 	       (lang0-emit 'mul))
 	     t))))
+
