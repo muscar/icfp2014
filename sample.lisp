@@ -1,3 +1,5 @@
+(include "stdlib.lisp")
+
 ;; (defstruct point
 ;;   x y z)
 
@@ -96,9 +98,6 @@
 ;;       acc
 ;;       (foldl f (f acc (car list)) (cdr list))))
 
-(defconstant nil 0)
-(defconstant t 1)
-
 ;; (defun null (thing)
 ;;   (and (atom thing) (= thing 0)))
 
@@ -168,6 +167,31 @@
 ;; 	     (dbug right)
 ;; 	     (dbug 222222)
 ;; 	     (append (sort left) (cons pivot (sort right))))))
+
+(defun split-line-horiz (m x y)
+  (local (line (nth y m))
+	 current
+	 left-part
+	 right-part
+	 i)
+  (while (> x 0)
+      (set! left-part (cons (car line) left-part))
+      (set! line (cdr line))
+      (decf x))
+  (set! current (car line))
+  (set! right-part (cdr line))
+  (list current left-part right-part))
+
+(defun split-at-pos (m tm x y)
+  (local (h-split (split-line-horiz m x y))
+	 (v-split (split-line-horiz tm x y))
+	 current left right top bottom)
+  (set! current (car h-split))
+  (set! left (cadr h-split))
+  (set! right (caddr h-split))
+  (set! top (cadr v-split))
+  (set! bottom (caddr v-split))
+  (list current left right top bottom))
 
 (defun main ()
   ;; (dbug (fold (lambda (x y)
@@ -246,8 +270,19 @@
   ;;   (dbug (cell-score (car cell-types)))
   ;;   (set! cell-types (cdr cell-types)))
   ;; (dbug (and 1 1 1))
-  (dbug (+))
-  (dbug (+ 1))
-  (dbug (+ 1 2))
-  (dbug (+ 1 2 3))
+  ;; (dbug (+))
+  ;; (dbug (+ 1))
+  ;; (dbug (+ 1 2))
+  ;; (dbug (+ 1 2 3))
+  ;; (dbug (eql 1 1))
+  ;; (dbug (eql 1 2))
+  ;; (dbug (eql (cons 1 2) (cons 1 2)))
+  ;; (dbug (eql (cons 1 2) (cons 1 3)))
+  ;; (dbug (map (lambda (x) (+ x 1)) (list 1 2 3)))
+  (local (m (list (list 1 2 3) (list 4 5 6) (list 7 8 9)))
+	 tm)
+  (set! tm (transpose m))
+  (dbug tm)
+  (dbug (split-line-horiz m 1 1))
+  (dbug (split-at-pos m tm 1 1))
   )
