@@ -362,7 +362,8 @@
 	   (unless level
 	     (error "can only set fields of structs that are sotred in local variables"))
 	   (lang0-struct-field-set (second place) (third place) value (fourth place))
-	   (lang0-emit 'st level idx)))))
+	   (lang0-emit 'st level idx))))
+  t)
 
 (defun lang0-prim-list (values)
   (dolist (value values)
@@ -370,7 +371,8 @@
   ;; Emit NIL
   (lang0-emit 'ldc 0)
   (dotimes (idx (length values))
-    (lang0-emit 'cons)))
+    (lang0-emit 'cons))
+  t)
 
 (defun compile-lang0-prim (instr)
   (destructuring-bind (op &rest args) instr
@@ -401,7 +403,8 @@
       (when (compile-l0-when (first args) (rest args)))
       (unless (compile-l0-unless (first args) (rest args)))
       (begin (compile-l0-begin args))
-      ((+ - * / = > >= cons) (compile-l0-binop op (first args) (second args)))
+      ((- * / = > >= cons) (compile-l0-binop op (first args) (second args)))
+      (+ (l0-prim-plus args))
       (< (compile-l0-binop '> (second args) (first args)))
       (<= (compile-l0-binop '>= (second args) (first args)))
       (and (l0-prim-and args))
@@ -417,7 +420,8 @@
 
 (defun compile-l0-goto (label)
   (lang0-emit 'ldc 1)
-  (lang0-emit 'tsel label label))
+  (lang0-emit 'tsel label label)
+  t)
 
 (defun compile-l0-binop (op first-arg second-arg)
   (let* ((op-map '((+ . add)
@@ -490,13 +494,24 @@
   (lang0-prim-set! place `(- ,place 1)))
 
 (defun l0-prim-or (args)
-  (cond ((null args) (l0-emit-nil))
+  (cond ((null args) (l0-emit-nil) t)
 	((null (cdr args)) (compile-lang0-instruction (car args)))
 	((null (cddr args)) (compile-l0-if (first args) 1 (second args)))
 	(t (l0-prim-or `(,(car args) (or ,@(cdr args)))))))
 
 (defun l0-prim-and (args)
-  (cond ((null args) (l0-emit-t))
-	((null (cdr args)) (compile-lang0-instruction (car args)))
-	((null (cddr args)) (compile-l0-if (first args) (second args) 0))
+  (cond ((null args) (l0-emit-t) t)
+	((null (cdr args)) (compile-lang0-instruction (car args)) t)
+	((null (cddr args)) (compile-l0-if (first args) (second args) 0) t)
 	(t (l0-prim-and `(,(car args) (and ,@(cdr args)))))))
+
+(defun l0-prim-plus (args)
+  (cond ((null args) (l0-emit-nil) t)
+	;; ((null (cdr args)) (compile-lang0-instruction (car args)))
+	(t (let ((count 0))
+	     (dolist (arg args)
+	       (incf count)
+	       (compile-lang0-instruction arg))
+	     (dotimes (idx (- count 1))
+	       (lang0-emit 'add))
+	     t))))
