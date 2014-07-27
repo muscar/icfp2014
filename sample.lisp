@@ -55,10 +55,10 @@
       (= l 0)
       0))
 
-(defun map (f xs)
-  (if (null xs)
-      xs
-      (cons (f (car xs)) (map f (cdr xs)))))
+;; (defun map (f xs)
+;;   (if (null xs)
+;;       xs
+;;       (cons (f (car xs)) (map f (cdr xs)))))
 
 ;; (defun fold (f xs)
 ;;   (if (atom xs)
@@ -102,39 +102,72 @@
 ;; (defun null (thing)
 ;;   (and (atom thing) (= thing 0)))
 
-;; (defun reverse (list acc)
-;;   (if (null list)
-;;       acc
-;;       (reverse (cdr list) (cons (car list) acc))))
+(defun reverse (list acc)
+  (if (null list)
+      acc
+      (reverse (cdr list) (cons (car list) acc))))
 
-;; (defun filter (pred list acc)
-;;   (if (null list)
-;;       (reverse acc nil)
-;;       (if (pred (car list))
-;; 	  (filter pred (cdr list) (cons (car list) acc))
-;; 	  (filter pred (cdr list) acc))))
+(defun filter (pred list acc)
+  (if (null list)
+      (reverse acc nil)
+      (if (pred (car list))
+	  (filter pred (cdr list) (cons (car list) acc))
+	  (filter pred (cdr list) acc))))
 
 ;; (defun foo ()
 ;;   1)
 
-(defconstant wall 0)
-(defconstant empty 1)
-(defconstant pill 2)
-(defconstant power-pill 3)
-(defconstant fruit-location 4)
-(defconstant player-start-pos 5)
-(defconstant ghost-start-pos 6)
+;; (defconstant wall 0)
+;; (defconstant empty 1)
+;; (defconstant pill 2)
+;; (defconstant power-pill 3)
+;; (defconstant fruit-location 4)
+;; (defconstant player-start-pos 5)
+;; (defconstant ghost-start-pos 6)
 
-(defun cell-score (cell)
-  (cond ((= cell player-start-pos) 0)
-	((= cell ghost-start-pos) -1)
-	(t cell)))
+;; (defun cell-score (cell)
+;;   (cond ((= cell player-start-pos) 0)
+;; 	((= cell ghost-start-pos) -1)
+;; 	(t cell)))
 
-(defun for-each (f xs)
-  (if (not (null xs))
-      (begin
-       (f (car xs))
-       (for-each f (cdr xs)))))
+;; (defun for-each (f xs)
+;;   (if (not (null xs))
+;;       (begin
+;;        (f (car xs))
+;;        (for-each f (cdr xs)))))
+
+(defun append (list1 list2)
+  (if (null list1)
+      list2
+      (cons (car list1) (append (cdr list1) list2))))
+
+(defun length (list)
+  (if (null list)
+      0
+      (+ 1 (length (cdr list)))))
+
+(defun sort (list)
+  (dbug list)
+  (local pivot left right)
+  (if (< (length list) 2)
+      list
+      (begin (set! pivot (car list))
+	     (set! list (cdr list))
+	     (dbug pivot)
+	     (dbug list)
+	     (set! left (filter (lambda (x)
+				  (<= x pivot))
+				list
+				nil))
+	     (dbug left)
+	     (dbug 222222)
+	     (set! right (filter (lambda (x)
+				   (> x pivot))
+				 list
+				 nil))
+	     (dbug right)
+	     (dbug 222222)
+	     (append (sort left) (cons pivot (sort right))))))
 
 (defun main ()
   ;; (dbug (fold (lambda (x y)
@@ -187,28 +220,28 @@
   ;; 	    cell-types)
   ;; (dbug (map cell-score cell-types))
 
-  (when (= 1 1)
-    (dbug 0)
-    (dbug 1))
+  ;; (when (= 1 1)
+  ;;   (dbug 0)
+  ;;   (dbug 1))
 
-  (when (= 1 2)
-    (dbug 0)
-    (dbug 2))
+  ;; (when (= 1 2)
+  ;;   (dbug 0)
+  ;;   (dbug 2))
 
-  (unless (= 1 1)
-    (dbug 0)
-    (dbug 3))
+  ;; (unless (= 1 1)
+  ;;   (dbug 0)
+  ;;   (dbug 3))
 
-  (unless (= 1 2)
-    (dbug 0)
-    (dbug 4))
+  ;; (unless (= 1 2)
+  ;;   (dbug 0)
+  ;;   (dbug 4))
 
-  (local (x 3))
-  (incf x)
-  (dbug x)
-  (decf x)
-  (dbug x)
-
+  ;; (local (x 3))
+  ;; (incf x)
+  ;; (dbug x)
+  ;; (decf x)
+  ;; (dbug x)
+  (dbug (sort (list 5 1 4 2 3)))
   ;; (while (not (null cell-types))
   ;;   (dbug (cell-score (car cell-types)))
   ;;   (set! cell-types (cdr cell-types)))

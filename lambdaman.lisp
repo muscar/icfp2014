@@ -43,6 +43,22 @@
       acc
       (foldl f (f acc (car list)) (cdr list))))
 
+(defun sort (list)
+  (local pivot lefts rights)
+  (if (< (length list) 2)
+      list
+      (begin (set! pivot (car list))
+	     (set! list (cdr list))
+	     (set! lefts (filter (lambda (x)
+				   (<= x pivot))
+				 list
+				 nil))
+	     (set! rights (filter (lambda (x)
+				    (> x pivot))
+				  list
+				  nil))
+	     (append (sort lefts) (cons pivot (sort rights))))))
+
 ;; AI
 
 (defstruct world-state
@@ -132,29 +148,6 @@
     (set! current-location (location-for-direction current-location direction)))
   result)
 
-(defun sort (list)
-  (dbug list)
-  (local pivot left right)
-  (if (< (length list) 2)
-      list
-      (begin (set! pivot (car list))
-	     (set! list (cdr list))
-	     (dbug pivot)
-	     (dbug list)
-	     (set! left (filter (lambda (x)
-				  (<= x pivot))
-				list
-				nil))
-	     (dbug left)
-	     (dbug 222222)
-	     (set! right (filter (lambda (x)
-				   (> x pivot))
-				 list
-				 nil))
-	     (dbug right)
-	     (dbug 222222)
-	     (append (sort left) (cons pivot (sort right))))))
-
 (defun choose-next-direction (map location direction)
   (local (possible-moves (filter (lambda (direction)
 				   (can-move map location direction))
@@ -189,18 +182,16 @@
   best-move)
 
 (defun ai-step-function (ai-state world-state)
-  ;; (local (map (world-state.map world-state))
-  ;; 	 (status (world-state.player-status world-state))
-  ;; 	 (location (player-status.location status))
-  ;; 	 (direction ai-state)
-  ;; 	 next-direction)
+  (local (map (world-state.map world-state))
+  	 (status (world-state.player-status world-state))
+  	 (location (player-status.location status))
+  	 (direction ai-state)
+  	 next-direction)
 
-  ;; (if (can-move map location direction)
-  ;;     (cons direction direction)
-  ;;     (begin (set! next-direction (choose-next-direction map location direction))
-  ;; 	     (cons next-direction next-direction)))
-  (dbug (sort (list 5 1 4 2 3)))
-  (cons right right)
+  (if (can-move map location direction)
+      (cons direction direction)
+      (begin (set! next-direction (choose-next-direction map location direction))
+  	     (cons next-direction next-direction)))
   )
 
 (defun main (initial-state undocumented)
