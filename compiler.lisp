@@ -270,10 +270,13 @@
       (compile-l0-function-ref sym)
       (error "Undefined symbol ~a" sym)))
 
+(defun get-constant-ref (sym)
+  (cdr (assoc sym *constants*)))
+
 (defun compile-l0-constant-ref (sym)
-  (let ((constant (assoc sym *constants*)))
+  (let ((constant (get-constant-ref sym)))
     (when constant
-	  (lang0-emit 'ldc (cdr constant))
+	  (lang0-emit 'ldc constant)
 	  t)))
 
 (defun compile-l0-function-ref (sym)
@@ -448,24 +451,43 @@
     (lang0-emit (cdr opcode))
     t))
 
+(defun fold-constant (expr)
+  expr)
+  ;; (cond ((numberp expr) expr)
+  ;; 	((symbolp expr) (let ((constant (get-constant-ref expr)))
+  ;; 			  (if constant
+  ;; 			      (fold-constant constant)
+  ;; 			      expr)))
+  ;; 	(t expr)))
+
+(defun is-constant (expr)
+  (let ((e (fold-constant expr)))
+    (when (numberp e)
+      e)))
+
 (defun compile-l0-if (condition then-body else-body)
-  (let ((then-label (fresh-label "then"))
-	(else-label (fresh-label "else"))
-	(after-label (fresh-label "after")))
-    (compile-lang0-instruction condition)
-    (lang0-emit 'tsel then-label else-label)
+  (let ((constant (is-constant condition)))
+    (if constant
+	(progn
+	  (compile-lang0-instruction (if (= 0 constant) else-body then-body))
+	  t)
+	(let ((then-label (fresh-label "then"))
+	      (else-label (fresh-label "else"))
+	      (after-label (fresh-label "after")))
+	  (compile-lang0-instruction condition)
+	  (lang0-emit 'tsel then-label else-label)
 
-    (lang0-mark-label then-label)
-    (compile-lang0-instruction then-body)
-    (when else-body
-      (compile-l0-goto after-label))
+	  (lang0-mark-label then-label)
+	  (compile-lang0-instruction then-body)
+	  (when else-body
+	    (compile-l0-goto after-label))
 
-    (lang0-mark-label else-label)
-    (when else-body
-      (compile-lang0-instruction else-body)
-      (lang0-mark-label after-label))
+	  (lang0-mark-label else-label)
+	  (when else-body
+	    (compile-lang0-instruction else-body)
+	    (lang0-mark-label after-label))
 
-    t))
+	  t))))
 
 (defun compile-l0-cond (conditions)
   (if conditions

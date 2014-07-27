@@ -1,5 +1,7 @@
 ;; (include "stdlib.lisp")
 
+(defconstant t 1)
+
 ;; (defstruct point
 ;;   x y z)
 
@@ -261,4 +263,8 @@
   ;; (dbug tm)
   ;; (dbug (split-line-horiz m 1 1))
   ;; (dbug (split-at-pos m tm 1 1))
+  (cond (t (dbug 1)))
+  ;; (if 1
+  ;;     (dbug 1)
+  ;;     (dbug 2))
   )
