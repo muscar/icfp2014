@@ -124,3 +124,10 @@
 
 (defun priority-queue-search (queue key)
   (assoc key queue))
+
+;; Math
+
+(defun abs (n)
+  (if (< n 0)
+      (- 0 n)
+      n))
