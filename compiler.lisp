@@ -123,7 +123,7 @@
 
 (defun add-local (fun local)
   (let* ((env (l0-function-env fun))
-	 (new-env (cons (cons local (car env)) (cdr env))))
+	 (new-env (cons (reverse (cons local (reverse (car env)))) (cdr env))))
     (setf (l0-function-env fun) new-env)))
 
 (defun collect-locals (fun locals)
@@ -218,6 +218,8 @@
       (collect-functions functions)
       (collect-structs structs)
       (collect-constants constants)
+
+      ;; (format t "~a~%" *functions*)
 
       (with-open-file (*gcc-out-stream* #p"out.gcc"
 					:direction :output

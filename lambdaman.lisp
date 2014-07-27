@@ -79,6 +79,9 @@
   (map-at map (car new-location) (cdr new-location)))
 
 (defun can-move (map location direction)
+  ;; (dbug map)
+  (dbug location)
+  ;; (dbug direction)
   (> (map-at-direction map location direction) wall))
 
 (defun best-move (map location ai-state possible-moves)
@@ -90,31 +93,31 @@
 	 ai-state
 	 possible-moves))
 
+(defun foo (x)
+  (dbug x))
+
 (defun ai-step-function (ai-state world-state)
   (local (map (world-state.map world-state))
 	 (status (world-state.player-status world-state))
 	 (location (player-status.location status)))
 
+  ;; (dbug 1)
+  ;; (foo location)
+  ;; (dbug 2)
+
   (local (possible-moves (filter (lambda (direction)
+				   (dbug location)
   				   (can-move map location direction))
   				 (list right left up down)
   				 nil)))
-  (local (next-move ai-state)
-	 (move-iter possible-moves))
-  (while move-iter
-    (if (> (map-at-direction map location current-direction)
-	   (map-at-direction map location candidate-direction))
-	current-direction
-	candidate-direction))
-    )
-  ;; (local (best-move (foldl (lambda (current-direction candidate-direction)
-  ;; 			     (if (> (map-at-direction map location current-direction)
-  ;; 			     	    (map-at-direction map location candidate-direction))
-  ;; 			     	 current-direction
-  ;; 			     	 candidate-direction))
-  ;; 			   ai-state
-  ;; 			   possible-moves)))
+  (dbug 3)
+  (local (moves-iter possible-moves))
+  (dbug 4)
+  (dbug moves-iter)
+  ;; (while (not (null moves-iter))
+  ;;   (set! moves-iter (cdr moves-iter)))
   (cons (car possible-moves) (car possible-moves)))
 
 (defun main (initial-state undocumented)
   (cons 0 ai-step-function))
+

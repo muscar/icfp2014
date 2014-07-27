@@ -76,8 +76,8 @@
 
 ;; (defconstant nil 0)
 
-(defun null (thing)
-  (and (atom thing) (= thing 0)))
+;; (defun null (thing)
+;;   (and (atom thing) (= thing 0)))
 
 ;; (defun nth (n list)
 ;;   (if (<= n 0)
@@ -91,10 +91,27 @@
 ;; 	  (car list)
 ;; 	  (find-if pred (cdr list)))))
 
-(defun foldl (f acc list)
+;; (defun foldl (f acc list)
+;;   (if (null list)
+;;       acc
+;;       (foldl f (f acc (car list)) (cdr list))))
+
+(defconstant nil 0)
+
+(defun null (thing)
+  (and (atom thing) (= thing 0)))
+
+(defun reverse (list acc)
   (if (null list)
       acc
-      (foldl f (f acc (car list)) (cdr list))))
+      (reverse (cdr list) (cons (car list) acc))))
+
+(defun filter (pred list acc)
+  (if (null list)
+      (reverse acc nil)
+      (if (pred (car list))
+	  (filter pred (cdr list) (cons (car list) acc))
+	  (filter pred (cdr list) acc))))
 
 (defun main ()
   ;; (dbug (fold (lambda (x y)
@@ -121,6 +138,16 @@
   ;; (dbug one)
   ;; (dbug two)
   ;; (find-if (lambda (x) (= x 7)) (list 1 2 3 4 5))
-  (local (x (foldl (lambda (x y) (+ x y)) 0 (list 1 2 3))))
-  (dbug x)
+  (local (y 42))
+  (local (f (lambda (x)
+	      (dbug y)
+	      (+ 1 1))))
+  (local (xs (filter f (list 1 2 3) 0)))
+  (dbug xs)
+
+  ;; (while (not (null x))
+  ;;   (dbug x)
+  ;;   (set! x (cdr x)))
+  ;; (local (x (foldl (lambda (x y) (+ x y)) 0 (list 1 2 3))))
+  ;; (dbug x)
   )
