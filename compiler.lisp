@@ -172,6 +172,15 @@
 (defun lang0-mark-label (label)
   (lang0-emit '$mark-label label))
 
+(defun l0-emit-const (value)
+  (lang0-emit 'ldc value))
+
+(defun l0-emit-nil ()
+  (l0-emit-const 0))
+
+(defun l0-emit-t ()
+  (l0-emit-const 1))
+
 (defun lang0-compile-file (path)
   (with-open-file (in path)
     (do (program
@@ -395,8 +404,8 @@
       ((+ - * / = > >= cons) (compile-l0-binop op (first args) (second args)))
       (< (compile-l0-binop '> (second args) (first args)))
       (<= (compile-l0-binop '>= (second args) (first args)))
-      (and (compile-l0-if (first args) (second args) 0))
-      (or (compile-l0-if (first args) 1 (second args)))
+      (and (l0-prim-and args))
+      (or (l0-prim-or args))
       (not (compile-l0-if (first args) 0 1))
       (incf (compile-l0-incf (first args)))
       (decf (compile-l0-decf (first args)))
@@ -479,3 +488,15 @@
 
 (defun compile-l0-decf (place)
   (lang0-prim-set! place `(- ,place 1)))
+
+(defun l0-prim-or (args)
+  (cond ((null args) (l0-emit-nil))
+	((null (cdr args)) (compile-lang0-instruction (car args)))
+	((null (cddr args)) (compile-l0-if (first args) 1 (second args)))
+	(t (l0-prim-or `(,(car args) (or ,@(cdr args)))))))
+
+(defun l0-prim-and (args)
+  (cond ((null args) (l0-emit-t))
+	((null (cdr args)) (compile-lang0-instruction (car args)))
+	((null (cddr args)) (compile-l0-if (first args) (second args) 0))
+	(t (l0-prim-and `(,(car args) (and ,@(cdr args)))))))
