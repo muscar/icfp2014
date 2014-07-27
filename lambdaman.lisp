@@ -52,6 +52,25 @@
 (defun map-at (map x y)
   (nth x (nth y map)))
 
+(defun split-line-horiz (m x y)
+  (local (line (nth y m))
+	 current
+	 left-part
+	 right-part
+	 i)
+  (while (> x 0)
+      (set! left-part (cons (car line) left-part))
+      (set! line (cdr line))
+      (decf x))
+  (set! current (car line))
+  (set! right-part (cdr line))
+  (list current left-part right-part))
+
+(defun split-at-pos (m tm x y)
+  (local (h-split (split-line-horiz m x y))
+	 (v-split (split-line-horiz tm x y)))
+  (list (car h-split) (cadr h-split) (caddr h-split) (cadr v-split) (caddr v-split)))
+
 (defun location-for-direction (location direction)
   (local (x (car location))
 	 (y (cdr location)))
