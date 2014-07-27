@@ -123,7 +123,7 @@
 
 (defun add-local (fun local)
   (let* ((env (l0-function-env fun))
-	 (new-env (cons (cons local (car env)) (cdr env))))
+	 (new-env (cons (reverse (cons local (reverse (car env)))) (cdr env))))
     (setf (l0-function-env fun) new-env)))
 
 (defun collect-locals (fun locals)
@@ -343,6 +343,7 @@
 			   (compile-lang0-instruction value)
 			   (unless level
 			     (error "undefined set place ~a" place))
+			   (lang0-emit 'rem place)
 			   (lang0-emit 'st level idx)))
 	((and (consp place)
 	      (eq (first place) 'struct-field))
