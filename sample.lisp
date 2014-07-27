@@ -203,6 +203,12 @@
     (dbug 0)
     (dbug 4))
 
+  (local (x 3))
+  (incf x)
+  (dbug x)
+  (decf x)
+  (dbug x)
+
   ;; (while (not (null cell-types))
   ;;   (dbug (cell-score (car cell-types)))
   ;;   (set! cell-types (cdr cell-types)))
