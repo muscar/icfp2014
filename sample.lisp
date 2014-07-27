@@ -168,30 +168,6 @@
 ;; 	     (dbug 222222)
 ;; 	     (append (sort left) (cons pivot (sort right))))))
 
-(defun split-line-horiz (m x y)
-  (local (line (nth y m))
-	 current
-	 left-part
-	 right-part
-	 i)
-  (while (> x 0)
-      (set! left-part (cons (car line) left-part))
-      (set! line (cdr line))
-      (decf x))
-  (set! current (car line))
-  (set! right-part (cdr line))
-  (list current left-part right-part))
-
-(defun split-at-pos (m tm x y)
-  (local (h-split (split-line-horiz m x y))
-	 (v-split (split-line-horiz tm x y))
-	 current left right top bottom)
-  (set! current (car h-split))
-  (set! left (cadr h-split))
-  (set! right (caddr h-split))
-  (set! top (cadr v-split))
-  (set! bottom (caddr v-split))
-  (list current left right top bottom))
 
 (defun main ()
   ;; (dbug (fold (lambda (x y)
