@@ -366,8 +366,11 @@
   (destructuring-bind (op &rest args) instr
     (case op
       (local (dolist (var args)
-	       (cond ((symbolp var))
-		     ((consp var) (lang0-prim-set! (first var) (second var)))
+	       (cond ((symbolp var) (when (assoc var *constants*)
+				      (error "cannot redefine constant ~a as variable~%" var)))
+		     ((consp var) (when (assoc (first var) *constants*)
+				      (error "cannot redefine constant ~a as variable~%" var))
+		                  (lang0-prim-set! (first var) (second var)))
 		     (t (error "malformed local binding ~a" var))))
 	     t)
       (list (lang0-prim-list args)
