@@ -385,6 +385,8 @@
       (if (compile-l0-if (first args) (second args) (third args)))
       (cond (compile-l0-cond args))
       (while (compile-l0-while (first args) (rest args)))
+      (when (compile-l0-when (first args) (rest args)))
+      (unless (compile-l0-unless (first args) (rest args)))
       (begin (compile-l0-begin args))
       ((+ - * / = > >= cons) (compile-l0-binop op (first args) (second args)))
       (< (compile-l0-binop '> (second args) (first args)))
@@ -459,3 +461,9 @@
   (dolist (instr body)
     (compile-lang0-instruction instr))
   t)
+
+(defun compile-l0-when (condition body)
+  (compile-l0-if condition `(begin ,@body) nil))
+
+(defun compile-l0-unless (condition body)
+  (compile-l0-if `(not ,condition) `(begin ,@body) nil))

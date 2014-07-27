@@ -181,11 +181,27 @@
   ;; (dbug (cell-score fruit-location))
   ;; (dbug (cell-score player-start-pos))
   ;; (dbug (cell-score ghost-start-pos))
-  (local (cell-types (list wall empty pill power-pill fruit-location player-start-pos ghost-start-pos)))
-  (for-each (lambda (cell)
-	      (dbug (cell-score cell)))
-	    cell-types)
-  (dbug (map cell-score cell-types))
+  ;; (local (cell-types (list wall empty pill power-pill fruit-location player-start-pos ghost-start-pos)))
+  ;; (for-each (lambda (cell)
+  ;; 	      (dbug (cell-score cell)))
+  ;; 	    cell-types)
+  ;; (dbug (map cell-score cell-types))
+
+  (when (= 1 1)
+    (dbug 0)
+    (dbug 1))
+
+  (when (= 1 2)
+    (dbug 0)
+    (dbug 2))
+
+  (unless (= 1 1)
+    (dbug 0)
+    (dbug 3))
+
+  (unless (= 1 2)
+    (dbug 0)
+    (dbug 4))
 
   ;; (while (not (null cell-types))
   ;;   (dbug (cell-score (car cell-types)))
