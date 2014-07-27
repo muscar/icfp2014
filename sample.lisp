@@ -50,10 +50,10 @@
 ;;   (dbug (f 10)))
 
 
-(defun null (l)
-  (if (atom l)
-      (= l 0)
-      0))
+;; (defun null (l)
+;;   (if (atom l)
+;;       (= l 0)
+;;       0))
 
 ;; (defun map (f xs)
 ;;   (if (null xs)
@@ -102,17 +102,17 @@
 ;; (defun null (thing)
 ;;   (and (atom thing) (= thing 0)))
 
-(defun reverse (list acc)
-  (if (null list)
-      acc
-      (reverse (cdr list) (cons (car list) acc))))
+;; (defun reverse (list acc)
+;;   (if (null list)
+;;       acc
+;;       (reverse (cdr list) (cons (car list) acc))))
 
-(defun filter (pred list acc)
-  (if (null list)
-      (reverse acc nil)
-      (if (pred (car list))
-	  (filter pred (cdr list) (cons (car list) acc))
-	  (filter pred (cdr list) acc))))
+;; (defun filter (pred list acc)
+;;   (if (null list)
+;;       (reverse acc nil)
+;;       (if (pred (car list))
+;; 	  (filter pred (cdr list) (cons (car list) acc))
+;; 	  (filter pred (cdr list) acc))))
 
 ;; (defun foo ()
 ;;   1)
@@ -136,38 +136,38 @@
 ;;        (f (car xs))
 ;;        (for-each f (cdr xs)))))
 
-(defun append (list1 list2)
-  (if (null list1)
-      list2
-      (cons (car list1) (append (cdr list1) list2))))
+;; (defun append (list1 list2)
+;;   (if (null list1)
+;;       list2
+;;       (cons (car list1) (append (cdr list1) list2))))
 
-(defun length (list)
-  (if (null list)
-      0
-      (+ 1 (length (cdr list)))))
+;; (defun length (list)
+;;   (if (null list)
+;;       0
+;;       (+ 1 (length (cdr list)))))
 
-(defun sort (list)
-  (dbug list)
-  (local pivot left right)
-  (if (< (length list) 2)
-      list
-      (begin (set! pivot (car list))
-	     (set! list (cdr list))
-	     (dbug pivot)
-	     (dbug list)
-	     (set! left (filter (lambda (x)
-				  (<= x pivot))
-				list
-				nil))
-	     (dbug left)
-	     (dbug 222222)
-	     (set! right (filter (lambda (x)
-				   (> x pivot))
-				 list
-				 nil))
-	     (dbug right)
-	     (dbug 222222)
-	     (append (sort left) (cons pivot (sort right))))))
+;; (defun sort (list)
+;;   (dbug list)
+;;   (local pivot left right)
+;;   (if (< (length list) 2)
+;;       list
+;;       (begin (set! pivot (car list))
+;; 	     (set! list (cdr list))
+;; 	     (dbug pivot)
+;; 	     (dbug list)
+;; 	     (set! left (filter (lambda (x)
+;; 				  (<= x pivot))
+;; 				list
+;; 				nil))
+;; 	     (dbug left)
+;; 	     (dbug 222222)
+;; 	     (set! right (filter (lambda (x)
+;; 				   (> x pivot))
+;; 				 list
+;; 				 nil))
+;; 	     (dbug right)
+;; 	     (dbug 222222)
+;; 	     (append (sort left) (cons pivot (sort right))))))
 
 (defun main ()
   ;; (dbug (fold (lambda (x y)
@@ -241,8 +241,13 @@
   ;; (dbug x)
   ;; (decf x)
   ;; (dbug x)
-  (dbug (sort (list 5 1 4 2 3)))
+  ;; (dbug (sort (list 5 1 4 2 3)))
   ;; (while (not (null cell-types))
   ;;   (dbug (cell-score (car cell-types)))
   ;;   (set! cell-types (cdr cell-types)))
+  ;; (dbug (and 1 1 1))
+  (dbug (+))
+  (dbug (+ 1))
+  (dbug (+ 1 2))
+  (dbug (+ 1 2 3))
   )
