@@ -8,6 +8,7 @@
 	  (subseq sequence (1+ pos))))
 
 (defparameter *gcc-program* '())
+(defparameter *gcc-out-stream* '())
 
 ;; GCC assembly
 
@@ -54,13 +55,17 @@
      do (cond ((ldf-instr-p instr) (let ((name (car (find-if (lambda (entry)
 							       (= (cdr entry) (second instr)))
 							     label-addrs))))
-				     (format t "~{~a ~}~10,25@t; address of ~a~%" instr name)))
+				     (format t "~{~a ~}~10,25@t; address of ~a~%" instr name)
+				     (format *gcc-out-stream* "~{~a ~}~10,25@t; address of ~a~%" instr name)))
 	      ((rem-instr-p instr) (setf pending-label (rest instr)))
 	      (t (if pending-label
 		     (progn
 		       (format t "~{~a ~}~10,25@t; ~{~a ~}~%" instr pending-label)
+		       (format *gcc-out-stream* "~{~a ~}~10,25@t; ~{~a ~}~%" instr pending-label)
 		       (setf pending-label nil))
-		     (format t "~{~a ~}~%" instr))))))
+		     (progn
+		       (format t "~{~a ~}~%" instr)
+		       (format *gcc-out-stream* "~{~a ~}~%" instr)))))))
 
 ;; Lang 0
 
@@ -102,7 +107,7 @@
     (setf *functions* funs)))
 
 (defun analyze-function (fun env)
-  (assert (fundefp fun) () "expecting function definition, but got ~a" fun)
+  (assert (defun-p fun) () "expecting function definition, but got ~a" fun)
   (destructuring-bind (name args &rest body) (cdr fun)
     (let ((function (make-l0-function :name name
 				      :env (cons '() (cons args env))
@@ -176,11 +181,10 @@
 
 (defun lookup-env (sym)
   (let ((level 0))
-    (loop
-       for env in (l0-function-env *l0-current-function*) do
-	 (let ((idx (position sym env)))
-	   (when idx
-	     (return (cons level idx))))
+    (loop for env in (l0-function-env *l0-current-function*)
+       do (let ((idx (position sym env)))
+	    (when idx
+	      (return (cons level idx))))
 	 (incf level))))
 
 (defun compile-l0-function (function)
@@ -215,16 +219,18 @@
       (collect-structs structs)
       (collect-constants constants)
 
-      ;; (format t "~a~%" *functions*)
-
-      (let ((main-function (cdr (assoc 'main *functions*))))
-	(unless main-function
-	  (error "no main function defined"))
-	(lang0-emit-program-start main-function))
+      (with-open-file (*gcc-out-stream* #p"out.gcc"
+					:direction :output
+					:if-exists :supersede
+					:if-does-not-exist :create)
+	(let ((main-function (cdr (assoc 'main *functions*))))
+	  (unless main-function
+	    (error "no main function defined"))
+	  (lang0-emit-program-start main-function))
       
-      (let ((functions (mapcar #'cdr (append *functions* *lambdas*))))
-	(dolist (*l0-current-function* functions (compile-gcc (nreverse *gcc-program*)))
-	  (compile-l0-function *l0-current-function*))))))
+	(let ((functions (mapcar #'cdr (append *functions* *lambdas*))))
+	  (dolist (*l0-current-function* functions (compile-gcc (nreverse *gcc-program*)))
+	    (compile-l0-function *l0-current-function*)))))))
 
 (defun lang0-emit-program-start (main-function)
   (compile-l0-goto (l0-function-name main-function)))
