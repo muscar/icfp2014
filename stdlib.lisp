@@ -57,10 +57,21 @@
 	((pred (car list)) (filter pred (cdr list) (cons (car list) acc)))
 	(t (filter pred (cdr list) acc))))
 
+(defun map (f list)
+  (if (null list)
+      nil
+      (cons (f (car list)) (map f (cdr list)))))
+
 (defun foldl (f acc list)
   (if (null list)
       acc
       (foldl f (f acc (car list)) (cdr list))))
+
+(defun transpose (m)
+  (if (null (car m))
+      nil
+      (cons (map (lambda (x) (car x)) m)
+            (transpose (map (lambda (x) (cdr x)) m)))))
 
 (defun sort (list)
   (local pivot lefts rights)
