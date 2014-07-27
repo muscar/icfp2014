@@ -345,6 +345,7 @@
 			   (compile-lang0-instruction value)
 			   (unless level
 			     (error "undefined set place ~a" place))
+			   (lang0-emit 'rem place)
 			   (lang0-emit 'st level idx)))
 	((and (consp place)
 	      (eq (first place) 'struct-field))
