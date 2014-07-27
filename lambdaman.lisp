@@ -79,6 +79,10 @@
   location
   direction)
 
+(defstruct choice
+  location
+  direction)
+
 (defconstant up 0)
 (defconstant right 1)
 (defconstant down 2)
@@ -91,6 +95,12 @@
 (defconstant fruit-location 4)
 (defconstant player-start-pos 5)
 (defconstant ghost-start-pos 6)
+
+(defun location-x (location)
+  (car location))
+
+(defun location-y (location)
+  (cdr location))
 
 (defun opposite-direction (direction)
   (cond ((= direction up) down)
@@ -126,17 +136,9 @@
 	 possible-moves))
 
 (defun cell-score (cell)
-  (if (or (= cell player-start-pos)
-	  (= cell empty))
-      0
-      (if (or (= cell ghost-start-pos)
-	      (= cell wall))
-	  -1
-	  cell))
-  ;; (cond ((= cell player-start-pos) 0)
-  ;; 	((= cell ghost-start-pos) -1)
-  ;; 	(t cell))
-  )
+  (cond ((or (= cell player-start-pos) (= cell empty)) 0)
+	((or (= cell ghost-start-pos) (= cell wall)) -1)
+	(t cell)))
 
 (defun direction-score (map location direction)
   (local (current-location location)
@@ -148,29 +150,50 @@
     (set! current-location (location-for-direction current-location direction)))
   result)
 
-(defun choose-next-direction (map location direction)
+(defun choose-next-direction (map choices location direction)
   (local (possible-moves (filter (lambda (direction)
 				   (can-move map location direction))
 				 (list right left up down)
 				 nil)))
-  (dbug possible-moves)
+  ;; (dbug possible-moves)
   
   (local (best-move (foldl (lambda (current-direction candidate-direction)
 			     (local (current-score (direction-score map location current-direction))
 				    (candidate-score (direction-score map location candidate-direction)))
-			     (dbug 11111111)
+			     ;; (dbug 11111111)
 			     (when (= current-direction (opposite-direction direction))
 			       ;; (dbug 18181818)
 			       (set! current-score (- current-score 1)))
 			     (when (= candidate-direction (opposite-direction direction))
 			       ;; (dbug 17171717)
 			       (set! candidate-score (- candidate-score 1)))
-			     (dbug current-direction)
-			     (dbug current-score)
-			     (dbug 12121212)
-			     (dbug candidate-direction)
-			     (dbug candidate-score)
-			     (dbug 11111111)
+			     (when (find-if (lambda (choice)
+					      (dbug 17171717)
+					      (dbug choice)
+					      (dbug (choice.location choice))
+					      (dbug (location-x (choice.location choice)))
+					      (dbug (location-y (choice.location choice)))
+					      (dbug (choice.direction choice))
+					      (dbug location)
+					      (dbug (location-x location))
+					      (dbug (location-y location))
+					      (dbug (= (location-x (choice.location choice)) (location-x location)))
+					      (dbug (= (location-y (choice.location choice)) (location-y location)))
+					      (dbug (choice.direction choice))
+					      (when (and (= (location-x (choice.location choice)) (location-x location))
+					      		 (= (location-y (choice.location choice)) (location-y location)))
+					      	(dbug 17171717)
+					      	(= (choice.direction choice) candidate-direction))
+					      )
+					    choices)
+			       (dbug 19191919)
+			       (set! candidate-score (- candidate-score 1)))
+			     ;; (dbug current-direction)
+			     ;; (dbug current-score)
+			     ;; (dbug 12121212)
+			     ;; (dbug candidate-direction)
+			     ;; (dbug candidate-score)
+			     ;; (dbug 11111111)
 			     (if (or (> candidate-score current-score)
 				     (not (can-move map location current-direction)))
 				 candidate-direction
@@ -178,20 +201,29 @@
 			   direction
 			   possible-moves)))
   
-  (dbug best-move)
+  ;; (dbug best-move)
   best-move)
 
 (defun ai-step-function (ai-state world-state)
   (local (map (world-state.map world-state))
   	 (status (world-state.player-status world-state))
   	 (location (player-status.location status))
-  	 (direction ai-state)
+  	 (direction (player-status.direction status))
+  	 (choices ai-state)
   	 next-direction)
 
+  (dbug choices)
+
   (if (can-move map location direction)
-      (cons direction direction)
-      (begin (set! next-direction (choose-next-direction map location direction))
-  	     (cons next-direction next-direction)))
+      (cons choices direction)
+      (begin (set! next-direction (choose-next-direction map choices location direction))
+  	     (when (not (= next-direction direction))
+  	       (set! choices (cons (make-struct choice
+						location
+						next-direction)
+				   choices)))
+  	     (cons choices next-direction)))
+
   )
 
 (defun main (initial-state undocumented)
