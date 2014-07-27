@@ -210,12 +210,12 @@
 
 (defun compile-l0-function (function)
   (let ((function-body-label (intern (concatenate 'string (symbol-name (l0-function-name function)) "-BODY"))))
+    (lang0-generate-function-stub function function-body-label)
     (lang0-emit 'rem function-body-label)
     (lang0-mark-label function-body-label)
     (dolist (instr (l0-function-body function))
       (compile-lang0-instruction instr))
-    (lang0-emit 'rtn)
-    (lang0-generate-function-stub function function-body-label)))
+    (lang0-emit 'rtn)))
 
 (defun lang0-generate-function-stub (function function-body-label)
   (lang0-emit 'rem (l0-function-name function))

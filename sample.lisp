@@ -1,4 +1,4 @@
-(include "stdlib.lisp")
+;; (include "stdlib.lisp")
 
 ;; (defstruct point
 ;;   x y z)
@@ -255,10 +255,10 @@
   ;; (dbug (eql (cons 1 2) (cons 1 2)))
   ;; (dbug (eql (cons 1 2) (cons 1 3)))
   ;; (dbug (map (lambda (x) (+ x 1)) (list 1 2 3)))
-  (local (m (list (list 1 2 3) (list 4 5 6) (list 7 8 9)))
-	 tm)
-  (set! tm (transpose m))
-  (dbug tm)
-  (dbug (split-line-horiz m 1 1))
-  (dbug (split-at-pos m tm 1 1))
+  ;; (local (m (list (list 1 2 3) (list 4 5 6) (list 7 8 9)))
+  ;; 	 tm)
+  ;; (set! tm (transpose m))
+  ;; (dbug tm)
+  ;; (dbug (split-line-horiz m 1 1))
+  ;; (dbug (split-at-pos m tm 1 1))
   )
