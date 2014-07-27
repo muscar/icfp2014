@@ -19,6 +19,12 @@
 (defun caar (xs)
   (car (car xs)))
 
+(defun cadr (xs)
+  (car (cdr xs)))
+
+(defun caddr (xs)
+  (car (cdr (cdr xs))))
+
 (defun assoc (key list)
   (cond
     ((null list) nil)
