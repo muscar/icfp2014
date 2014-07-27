@@ -102,7 +102,7 @@
     (setf *functions* funs)))
 
 (defun analyze-function (fun env)
-  (assert (fundefp fun) () "expecting function definition, but got ~a" fun)
+  (assert (defun-p fun) () "expecting function definition, but got ~a" fun)
   (destructuring-bind (name args &rest body) (cdr fun)
     (let ((function (make-l0-function :name name
 				      :env (cons '() (cons args env))
