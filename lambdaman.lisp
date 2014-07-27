@@ -67,17 +67,12 @@
 	 possible-moves))
 
 (defun cell-score (cell)
-  (if (or (= cell player-start-pos)
-	  (= cell empty))
-      0
-      (if (or (= cell ghost-start-pos)
+  (cond ((or (= cell player-start-pos)
+	     (= cell empty)) 1)
+	((or (= cell ghost-start-pos)
 	      (= cell wall))
-	  -1
-	  cell))
-  ;; (cond ((= cell player-start-pos) 0)
-  ;; 	((= cell ghost-start-pos) -1)
-  ;; 	(t cell))
-  )
+	  -1)
+	(t cell)))
 
 (defun direction-score (map location direction)
   (local (current-location location)
