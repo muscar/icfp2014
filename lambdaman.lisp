@@ -1,15 +1,25 @@
 ;; Standard library
 
 (defconstant nil 0)
-(defconstant t 0)
+(defconstant t 1)
 
 (defun null (thing)
   (and (atom thing) (= thing 0)))
+
+(defun length (list)
+  (if (null list)
+      0
+      (+ 1 (length (cdr list)))))
 
 (defun nth (n list)
   (if (<= n 0)
       (car list)
       (nth (- n 1) (cdr list))))
+
+(defun append (list1 list2)
+  (if (null list1)
+      list2
+      (cons (car list1) (append (cdr list1) list2))))
 
 (defun reverse (list acc)
   (if (null list)
@@ -24,11 +34,9 @@
 	  (find-if pred (cdr list)))))
 
 (defun filter (pred list acc)
-  (if (null list)
-      (reverse acc nil)
-      (if (pred (car list))
-	  (filter pred (cdr list) (cons (car list) acc))
-	  (filter pred (cdr list) acc))))
+  (cond ((null list) (reverse acc nil))
+	((pred (car list)) (filter pred (cdr list) (cons (car list) acc)))
+	(t (filter pred (cdr list) acc))))
 
 (defun foldl (f acc list)
   (if (null list)
@@ -124,6 +132,29 @@
     (set! current-location (location-for-direction current-location direction)))
   result)
 
+(defun sort (list)
+  (dbug list)
+  (local pivot left right)
+  (if (< (length list) 2)
+      list
+      (begin (set! pivot (car list))
+	     (set! list (cdr list))
+	     (dbug pivot)
+	     (dbug list)
+	     (set! left (filter (lambda (x)
+				  (<= x pivot))
+				list
+				nil))
+	     (dbug left)
+	     (dbug 222222)
+	     (set! right (filter (lambda (x)
+				   (> x pivot))
+				 list
+				 nil))
+	     (dbug right)
+	     (dbug 222222)
+	     (append (sort left) (cons pivot (sort right))))))
+
 (defun choose-next-direction (map location direction)
   (local (possible-moves (filter (lambda (direction)
 				   (can-move map location direction))
@@ -136,10 +167,10 @@
 				    (candidate-score (direction-score map location candidate-direction)))
 			     (dbug 11111111)
 			     (when (= current-direction (opposite-direction direction))
-			       (dbug 18181818)
+			       ;; (dbug 18181818)
 			       (set! current-score (- current-score 1)))
 			     (when (= candidate-direction (opposite-direction direction))
-			       (dbug 17171717)
+			       ;; (dbug 17171717)
 			       (set! candidate-score (- candidate-score 1)))
 			     (dbug current-direction)
 			     (dbug current-score)
@@ -158,16 +189,18 @@
   best-move)
 
 (defun ai-step-function (ai-state world-state)
-  (local (map (world-state.map world-state))
-	 (status (world-state.player-status world-state))
-	 (location (player-status.location status))
-	 (direction ai-state)
-	 next-direction)
+  ;; (local (map (world-state.map world-state))
+  ;; 	 (status (world-state.player-status world-state))
+  ;; 	 (location (player-status.location status))
+  ;; 	 (direction ai-state)
+  ;; 	 next-direction)
 
-  (if (can-move map location direction)
-      (cons direction direction)
-      (begin (set! next-direction (choose-next-direction map location direction))
-  	     (cons next-direction next-direction)))
+  ;; (if (can-move map location direction)
+  ;;     (cons direction direction)
+  ;;     (begin (set! next-direction (choose-next-direction map location direction))
+  ;; 	     (cons next-direction next-direction)))
+  (dbug (sort (list 5 1 4 2 3)))
+  (cons right right)
   )
 
 (defun main (initial-state undocumented)
