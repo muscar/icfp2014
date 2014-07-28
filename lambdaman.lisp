@@ -59,9 +59,9 @@
 (defun split-at (x list)
   (local left-part)
   (while (> x 0)
-      (set! left-part (cons (car list) left-part))
-      (set! list (cdr list))
-      (decf x))
+    (set! left-part (cons (car list) left-part))
+    (set! list (cdr list))
+    (decf x))
   (list (car list) left-part (cdr list)))
 
 (defun split-line-at (m x y)
@@ -200,12 +200,11 @@
 			     				     (= (choice.direction choice) candidate-direction)
 			     				     0))
 			     			       choices)))
-			       (dbug (cons -10 candidate-direction))
 			       (set! candidate-score (- candidate-score 1)))
 			     (if (> candidate-score current-score)
-			     ;; (dbug (cons current-score candidate-score))
-			     ;; (if (or (> candidate-score current-score)
-			     ;; 	     (not (can-move map location current-direction)))
+				 ;; (dbug (cons current-score candidate-score))
+				 ;; (if (or (> candidate-score current-score)
+				 ;; 	     (not (can-move map location current-direction)))
 				 candidate-direction
 				 current-direction))
 			   direction
@@ -221,7 +220,7 @@
 
 (defun manhattan (l1 l2)
   (+ (abs (- (location-x l2) (location-x l1)))
-     (abs (- (location-y l2) (location-x l1)))))
+     (abs (- (location-y l2) (location-y l1)))))
 
 (defun neighbours (map location)
   (local (directions (list up right down left))
@@ -239,38 +238,33 @@
 	 key
 	 neighbour-locations
 	 neighbour-location
-	 neighbour)
+	 neighbour
+	 closed)
 
   (set! queue (priority-queue-insert queue (manhattan l1 l2) (make-struct path-node 0 nil l1)))
-  (dbug (priority-queue-top queue))
-  (dbug (path-node.location (cdr (priority-queue-top queue))))
   (while (not (eql (path-node.location (cdr (priority-queue-top queue))) l2))
-    (dbug 1337)
     (set! node (cdr (priority-queue-top queue)))
     (set! queue (priority-queue-pop queue))
-    (dbug node)
     (set! neighbour-locations (neighbours map (path-node.location node)))
-    (dbug neighbour-locations)
+    (set! closed (cons (path-node.location node) closed))
     (while (not (null neighbour-locations))
-      (dbug 1001001)
       (set! neighbour-location (car neighbour-locations))
-      (dbug neighbour-location)
-      (set! neighbour (make-struct path-node
-				   (+ 1 (path-node.cost node))
-				   (cons node (path-node.path node))
-				   neighbour-location))
-      (dbug neighbour)
-      (when (null (find-if (lambda (n)
-			     (eql (path-node.location n) neighbour-location))
-			   (path-node.path node)))
-	(dbug 2002002)
+      (when (null (find-if (lambda (closed-location)
+			     (eql neighbour-location closed-location))
+			   closed))
+	(set! neighbour (make-struct path-node
+				     (+ 1 (path-node.cost node))
+				     (cons node (path-node.path node))
+				     neighbour-location))
 	(set! key (+ (path-node.cost neighbour)
 		     (manhattan neighbour-location l2)))
 	(set! queue (priority-queue-insert queue key neighbour)))
-      (set! neighbour-locations (cdr neighbour-locations)))
-    (dbug -1337)
-    (dbug queue))
-  (reverse (path-node.path (cdr (priority-queue-top queue))) nil))
+      (set! neighbour-locations (cdr neighbour-locations))))
+  (reverse (cons l2
+		 (map (lambda (node)
+			(path-node.location node))
+		      (path-node.path (cdr (priority-queue-top queue)))))
+	   nil))
 
 (defun ai-step-function (ai-state world-state)
   (local (map (world-state.map world-state))
@@ -291,9 +285,7 @@
 						location
 						next-direction)
 				   choices)))
-  	     (cons choices next-direction)))
-  ;; (dbug (path map location (cons 0 0)))
-  )
+  	     (cons choices next-direction))))
 
 (defun main (initial-state undocumented)
   (cons 0 ai-step-function))
