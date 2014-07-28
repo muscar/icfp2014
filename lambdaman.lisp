@@ -41,6 +41,10 @@
 (defconstant player-start-pos 5)
 (defconstant ghost-start-pos 6)
 
+(defconstant standard 1)
+(defconstant frightened 2)
+(defconstant invisible 3)
+
 (defun location-x (location)
   (car location))
 
@@ -75,6 +79,16 @@
 	 (v-split (split-column-at m x y)))
   (list (car h-split) (cadr h-split) (caddr h-split) (cadr v-split) (caddr v-split)))
 
+(defun offsets-for-direction (direction)
+  (cond ((= direction up) (cons 0 -1))
+	((= direction down) (cons 0 1))
+	((= direction left) (cons -1 0))
+	((= direction right) (cons 1 0))))
+
+(defun move-to-direction (location offsets)
+  (cons (+ (car location) (car offsets))
+	(+ (cdr location) (cdr offsets))))
+
 (defun location-for-direction (location direction)
   (local (x (car location))
 	 (y (cdr location)))
@@ -106,21 +120,45 @@
     (set! current-location (location-for-direction current-location direction)))
   result)
 
-(defun get-span-score (span)
-  (local score cells)
+(defun get-ghost-vitality-at-cell (ghosts-status location)
+  (local vitality ghost-status)
+  (while (and (not (null ghosts-status))
+	      (= vitality 0))
+    (set! ghost-status (car ghosts-status))
+    (dbug (ghost-status.location ghost-status))
+    (when (eql (ghost-status.location ghost-status) location)
+      (set! vitality (+ 1 (ghost-status.vitality ghost-status))))
+    (set! ghosts-status (cdr ghosts-status)))
+  vitality)
+
+(defun get-ghost-score-adjustment (vitality distance)
+  (local score)
+  (cond ((= vitality frightened) (set! score 3))
+	((or (= vitality standard)
+	     (= vitality invisible)) (set! score -3)))
+  (if (< distance 4)
+       (set! score (* score 2)))
+  score)
+
+(defun get-span-score (span starting-location direction-offsets ghosts-status)
+  (local score cells vitality)
 
   (while (and (not (null span))
 	      (not (= (car span) wall)))
-    (set! score (+ score (cell-score (car span))))
-    (set! span (cdr span))
-    (incf cells))
+    (incf cells)
+    (set! starting-location (move-to-direction starting-location direction-offsets))
+    (set! vitality (get-ghost-vitality-at-cell ghosts-status starting-location))
+
+    (set! score (+ score (cell-score (car span)) (get-ghost-score-adjustment vitality cells)))
+
+    (set! span (cdr span)))
 
   (when (= cells 0)
     (set! score -1000))
 
   score)
 
-(defun get-direction-scores (map location)
+(defun get-direction-scores (map location ghosts-status)
   (local (spans (split-at-pos map (car location) (cdr location)))
 	 left-span right-span up-span down-span)
   (set! left-span (cadr spans))
@@ -128,14 +166,14 @@
   (set! up-span (cadddr spans))
   (set! down-span (caddddr spans))
 
-  (list (cons left (get-span-score left-span))
-	(cons right (get-span-score right-span))
-	(cons up (get-span-score up-span))
-	(cons down (get-span-score down-span))))
+  (list (cons left (get-span-score left-span location (offsets-for-direction left) ghosts-status))
+	(cons right (get-span-score right-span location (offsets-for-direction right) ghosts-status))
+	(cons up (get-span-score up-span location (offsets-for-direction up) ghosts-status))
+	(cons down (get-span-score down-span location (offsets-for-direction down) ghosts-status))))
 
 (defun choose-next-direction (map choices location direction)
   (local (possible-moves (list right left up down))
-	 (direction-scores (get-direction-scores map location)))
+	 (direction-scores (get-direction-scores map location ghosts-status)))
 
   (local (best-move (foldl (lambda (current-direction candidate-direction)
 			     (local (current-score (cdr (assoc current-direction direction-scores)))
@@ -228,6 +266,7 @@
 (defun ai-step-function (ai-state world-state)
   (local (map (world-state.map world-state))
   	 (status (world-state.player-status world-state))
+	 (ghosts-status (world-state.ghosts-status world-state))
   	 (location (player-status.location status))
   	 (direction (player-status.direction status))
   	 ;; (choices (ai-state.choices ai-state))
@@ -243,6 +282,15 @@
     (set! previous-lives (cdr (car ai-state)))
     (set! corner-idx (cdr ai-state)))
 
+  (if (can-move map location direction)
+      (cons choices direction)
+      (begin (set! next-direction (choose-next-direction map choices location direction ghosts-status))
+  	     (when (not (= next-direction direction))
+  	       (set! choices (cons (make-struct choice
+						location
+						next-direction)
+				   choices)))
+  	     (cons choices next-direction))))
   (when (> corner-idx 3)
     (set! corner-idx 0))
 

@@ -1,0 +1,42 @@
+L0 Compiler
+===========
+
+Our approach was to define a language that compiles to GCC. We chose Common Lisp as our implementation language for arbitrary reasons and our Lambdaman language (L0) is similar in form and spirit to LISP.
+
+For a taste of L0, here is a part of its standard library:
+
+    (defun foldl (f acc list)
+      (if (null list)
+          acc
+          (foldl f (f acc (car list)) (cdr list))))
+
+    (defun transpose (m)
+      (if (null (car m))
+          nil
+          (cons (map (lambda (x) (car x)) m)
+                (transpose (map (lambda (x) (cdr x)) m)))))
+
+And a part of the Lambdaman code:
+
+    (defun direction-score (map location direction)
+      (local (current-location location)
+             cell
+             result)
+      (while (can-move map current-location direction)
+        (set! cell (map-at-direction map current-location direction))
+        (set! result (+ result (cell-score cell)))
+        (set! current-location (location-for-direction current-location direction)))
+      result)
+
+Note that proper lexical scope for variables is not available, however lambda capture works fine. Structs are supported and are implemented as lists (which is not quite compatible with the state encoding used by the game).
+
+To compile a file, try:
+
+    (icfp:lang0-compile-file "lambdaman.lisp")
+
+The compiler was tested in SBCL 1.2.1.
+
+Game Code
+=========
+
+Sadly, we didn't get to implement a proper Lambdaman AI, nor any ghost AI at all.
