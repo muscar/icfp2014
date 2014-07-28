@@ -1,5 +1,6 @@
 (defpackage :icfp
-  (:use :cl))
+  (:use :cl)
+  (:export :lang0-compile-file))
 
 (in-package :icfp)
 
