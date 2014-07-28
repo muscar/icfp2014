@@ -117,16 +117,12 @@
 
 (defun get-ghost-vitality-at-cell (ghosts-status location)
   (local vitality ghost-status)
-  (dbug 1001)
-  (dbug location)
   (while (and (not (null ghosts-status))
 	      (= vitality 0))
     (set! ghost-status (car ghosts-status))
-    (dbug ghost-status)
     (dbug (ghost-status.location ghost-status))
     (when (eql (ghost-status.location ghost-status) location)
       (set! vitality (+ 1 (ghost-status.vitality ghost-status))))
-    (dbug vitality)
     (set! ghosts-status (cdr ghosts-status)))
   vitality)
 
@@ -136,10 +132,7 @@
 	((or (= vitality standard)
 	     (= vitality invisible)) (set! score -3)))
   (if (< distance 4)
-      (begin
-       (dbug 1234)
-       (set! score (* score 2))
-       (dbug 1235)))
+       (set! score (* score 2)))
   score)
 
 (defun get-span-score (span starting-location direction-offsets ghosts-status)
