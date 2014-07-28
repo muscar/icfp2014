@@ -34,6 +34,8 @@ To compile a file, try:
 
     (icfp:lang0-compile-file "lambdaman.lisp")
 
+It will generate the file "../code/lambdaman.gcc".
+
 The compiler was tested in SBCL 1.2.1.
 
 Game Code

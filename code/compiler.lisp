@@ -243,7 +243,7 @@
 
       ;; (format t "~a~%" *functions*)
 
-      (with-open-file (*gcc-out-stream* #p"out.gcc"
+      (with-open-file (*gcc-out-stream* #p"../solution/lambdaman.gcc"
 					:direction :output
 					:if-exists :supersede
 					:if-does-not-exist :create)
