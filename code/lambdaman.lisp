@@ -8,6 +8,10 @@
   ghosts-status
   fruits-status)
 
+(defstruct ai-state
+  choices
+  path)
+
 (defstruct player-status
   vitality
   location
@@ -33,7 +37,7 @@
 (defconstant empty 1)
 (defconstant pill 2)
 (defconstant power-pill 3)
-(defconstant fruit-location 4)
+(defconstant fruit 4)
 (defconstant player-start-pos 5)
 (defconstant ghost-start-pos 6)
 
@@ -101,9 +105,13 @@
   (> (map-at-direction map location direction) wall))
 
 (defun cell-score (cell)
-  (cond ((or (= cell player-start-pos) (= cell empty)) 0)
-	((or (= cell ghost-start-pos) (= cell wall)) -1)
+  (cond ((= cell player-start-pos) 0)
+	((= cell empty) -1)
+	((or (= cell ghost-start-pos) (= cell wall)) -2)
 	(t cell)))
+
+(defun get-cell-score (cell location)
+  (cell-score cell))
 
 (defun direction-score (map location direction)
   (local (current-location location)
@@ -166,98 +174,107 @@
 	(cons up (get-span-score up-span location (offsets-for-direction up) ghosts-status))
 	(cons down (get-span-score down-span location (offsets-for-direction down) ghosts-status))))
 
-(defun choose-next-direction (map choices location direction ghosts-status)
-  ;; (local (possible-moves (filter (lambda (direction)
-  ;; 				   (can-move map location direction))
-  ;; 				 (list right left up down)
-  ;; 				 nil))
+;; (defun choose-next-direction (map choices location direction)
+;;   (local (possible-moves (list right left up down))
+;; 	 (direction-scores (get-direction-scores map location ghosts-status)))
 
-  (local (possible-moves (list right left up down))
-	 (direction-scores (get-direction-scores map location ghosts-status)))
+;;   (local (best-move (foldl (lambda (current-direction candidate-direction)
+;; 			     (local (current-score (cdr (assoc current-direction direction-scores)))
+;; 				    (candidate-score (cdr (assoc candidate-direction direction-scores))))
 
-  (local (best-move (foldl (lambda (current-direction candidate-direction)
-			     ;; (local (current-score (direction-score map location current-direction))
-			     ;; 	    (candidate-score (direction-score map location candidate-direction)))
-			     (local (current-score (cdr (assoc current-direction direction-scores)))
-				    (candidate-score (cdr (assoc candidate-direction direction-scores))))
-
-			     (when (= current-direction (opposite-direction direction))
-			       ;; (dbug 18181818)
-			       (set! current-score (- current-score 1)))
-			     (when (= candidate-direction (opposite-direction direction))
-			       ;; (dbug 17171717)
-			       (set! candidate-score (- candidate-score 1)))
-			     (when (not (null (find-if (lambda (choice)
-			     				 (if (and (= (location-x location) (location-x location))
-			     					  (= (location-y (choice.location choice)) (location-y location)))
-			     				     (= (choice.direction choice) candidate-direction)
-			     				     0))
-			     			       choices)))
-			       (set! candidate-score (- candidate-score 1)))
-			     (if (> candidate-score current-score)
-				 ;; (dbug (cons current-score candidate-score))
-				 ;; (if (or (> candidate-score current-score)
-				 ;; 	     (not (can-move map location current-direction)))
-				 candidate-direction
-				 current-direction))
-			   direction
-			   possible-moves)))
+;; 			     (when (= current-direction (opposite-direction direction))
+;; 			       (set! current-score (- current-score 1)))
+;; 			     (when (= candidate-direction (opposite-direction direction))
+;; 			       (set! candidate-score (- candidate-score 1)))
+;; 			     (when (not (null (find-if (lambda (choice)
+;; 			     				 (if (and (= (location-x location) (location-x location))
+;; 			     					  (= (location-y (choice.location choice)) (location-y location)))
+;; 			     				     (= (choice.direction choice) candidate-direction)
+;; 			     				     0))
+;; 			     			       choices)))
+;; 			       (set! candidate-score (- candidate-score 1)))
+;; 			     (if (> candidate-score current-score)
+;; 				 candidate-direction
+;; 				 current-direction))
+;; 			   direction
+;; 			   possible-moves)))
   
-  ;; (dbug best-move)
-  best-move)
+;;   ;; (dbug best-move)
+;;   best-move)
 
 (defstruct path-node
   cost
   path
-  location)
+  location
+  direction)
 
 (defun manhattan (l1 l2)
   (+ (abs (- (location-x l2) (location-x l1)))
      (abs (- (location-y l2) (location-y l1)))))
 
-(defun neighbours (map location)
+(defun neighbours (map location ghosts-status dist)
   (local (directions (list up right down left))
-	 acc)
+	 nl
+	 gv
+	 ga
+	 acc cell)
   (while (not (null directions))
-    (when (can-move map location (car directions))
-      (set! acc (cons (location-for-direction location (car directions))
-		      acc)))
+    (set! nl (location-for-direction location (car directions)))
+    (set! cell (map-at-direction map location (car directions)))
+    (set! cell (get-cell-score cell nl))
+    (set! gv (get-ghost-vitality-at-cell ghosts-status location))
+    (set! ga (get-ghost-score-adjustment gv dist))
+    (set! acc (cons
+	       (list cell (car directions) nl)
+	       acc))
     (set! directions (cdr directions)))
-  (reverse acc nil))
+  acc)
 
-(defun path (map l1 l2)
+(defun path (map l1 l2 ghosts-status)
   (local (queue (make-priority-queue))
 	 node
 	 key
 	 neighbour-locations
 	 neighbour-location
+	 neighbour-direction
 	 neighbour
+	 nn
 	 closed)
 
-  (set! queue (priority-queue-insert queue (manhattan l1 l2) (make-struct path-node 0 nil l1)))
+  (set! queue (priority-queue-insert queue (manhattan l1 l2) (make-struct path-node 0 nil l1 0)))
   (while (not (eql (path-node.location (cdr (priority-queue-top queue))) l2))
     (set! node (cdr (priority-queue-top queue)))
     (set! queue (priority-queue-pop queue))
-    (set! neighbour-locations (neighbours map (path-node.location node)))
+    (set! neighbour-locations (neighbours map (path-node.location node) ghosts-status (+ 1 (path-node.cost node))))
     (set! closed (cons (path-node.location node) closed))
     (while (not (null neighbour-locations))
-      (set! neighbour-location (car neighbour-locations))
+      (set! nn (car neighbour-locations))
+      (set! neighbour-direction (car (cdr nn)))
+      (set! neighbour-location (car (cdr (cdr nn))))
       (when (null (find-if (lambda (closed-location)
 			     (eql neighbour-location closed-location))
 			   closed))
 	(set! neighbour (make-struct path-node
-				     (+ 1 (path-node.cost node))
+				     (+ (- 0 (car nn)) (path-node.cost node))
 				     (cons node (path-node.path node))
-				     neighbour-location))
+				     neighbour-location
+				     neighbour-direction))
 	(set! key (+ (path-node.cost neighbour)
 		     (manhattan neighbour-location l2)))
 	(set! queue (priority-queue-insert queue key neighbour)))
       (set! neighbour-locations (cdr neighbour-locations))))
-  (reverse (cons l2
+  (reverse (cons (path-node.direction (cdr (priority-queue-top queue)))
 		 (map (lambda (node)
-			(path-node.location node))
+			(path-node.direction node))
 		      (path-node.path (cdr (priority-queue-top queue)))))
 	   nil))
+
+(defstruct spans
+  left-span right-span up-span down-span)
+
+(defun get-spans (map x y)
+  (local (spans (split-at-pos map x y)))
+  (list (cadr spans) (caddr spans) (cadddr spans) (caddddr spans)))
 
 (defun ai-step-function (ai-state world-state)
   (local (map (world-state.map world-state))
@@ -265,20 +282,74 @@
 	 (ghosts-status (world-state.ghosts-status world-state))
   	 (location (player-status.location status))
   	 (direction (player-status.direction status))
-  	 (choices ai-state)
-  	 next-direction)
+  	 ;; (choices (ai-state.choices ai-state))
+	 current-path
+	 previous-lives
+  	 ;; (next-direction (choose-next-direction map nil location direction))
+	 next-direction
+	 (corner-idx 0)
+	 )
 
-  ;; (dbug choices)
+  (when (not (null ai-state))
+    (set! current-path (car (car ai-state)))
+    (set! previous-lives (cdr (car ai-state)))
+    (set! corner-idx (cdr ai-state)))
 
-  (if (can-move map location direction)
-      (cons choices direction)
-      (begin (set! next-direction (choose-next-direction map choices location direction ghosts-status))
-  	     (when (not (= next-direction direction))
-  	       (set! choices (cons (make-struct choice
-						location
-						next-direction)
-				   choices)))
-  	     (cons choices next-direction))))
+  (when (> corner-idx 3)
+    (set! corner-idx 0))
+
+  (when (< (player-status.lives status) previous-lives)
+    (set! current-path nil))
+
+  (local x y
+	 (map-width (- (length (car map)) 2))
+	 (map-height (- (length map) 2))
+	 (spans (get-spans map 1 1))
+	 corner
+	 search-location
+	 span)
+
+  (local (corners (list (cons 1 1)
+			(cons map-width 1)
+			(cons 1 map-height)
+			(cons map-width map-height))))
+
+  (when (null current-path)
+    (set! corner (nth corner-idx corners))
+    (set! corner-idx (+ corner-idx 1))
+    ;; (dbug corner)
+    (set! x (car corner))
+    (set! y (cdr corner))
+    (while (null search-location)
+      (set! span (find-if (lambda (span)
+			    (find-if (lambda (cell)
+				       (or (= cell pill)
+					   (= cell power-pill)
+					   (= cell fruit)))
+				     span))
+			  spans))
+      (when (not (null span))
+	(set! search-location (cons x y))))
+    ;; (dbug (cons location search-location))
+    (set! current-path (path map location search-location ghosts-status)))
+    ;; (dbug current-path))
+  (set! next-direction (car current-path))
+  (cons (cons (cons (cdr current-path) (player-status.lives status)) corner-idx) next-direction)
+
+  ;; (if (not (null path))
+  ;;     (begin (set! next-direction (car path))
+  ;; 	     (set! (struct-field ai-state path ai-state) (cdr path)))
+  ;;     (if (can-move map location direction)
+  ;; 	  (set! next-direction direction)
+  ;; 	  (begin (set! next-direction (choose-next-direction map choices location direction))
+  ;; 		 (when (not (= next-direction direction))
+  ;; 		   (set! (struct-field ai-state choices ai-state) (cons (make-struct choice
+  ;; 										     location
+  ;; 										     next-direction)
+  ;; 									choices)))))
+  ;;     )
+  ;; (cons ai-state next-direction)
+  )
 
 (defun main (initial-state undocumented)
   (cons 0 ai-step-function))
