@@ -110,6 +110,9 @@
 	((or (= cell ghost-start-pos) (= cell wall)) -2)
 	(t cell)))
 
+(defun get-cell-score (cell location)
+  (cell-score cell))
+
 (defun direction-score (map location direction)
   (local (current-location location)
 	 cell
@@ -209,17 +212,25 @@
   (+ (abs (- (location-x l2) (location-x l1)))
      (abs (- (location-y l2) (location-y l1)))))
 
-(defun neighbours (map location)
+(defun neighbours (map location ghosts-status dist)
   (local (directions (list up right down left))
-	 acc)
+	 nl
+	 gv
+	 ga
+	 acc cell)
   (while (not (null directions))
-    (when (can-move map location (car directions))
-      (set! acc (cons (cons (car directions) (location-for-direction location (car directions)))
-		      acc)))
+    (set! nl (location-for-direction location (car directions)))
+    (set! cell (map-at-direction map location (car directions)))
+    (set! cell (get-cell-score cell nl))
+    (set! gv (get-ghost-vitality-at-cell ghosts-status location))
+    (set! ga (get-ghost-score-adjustment gv dist))
+    (set! acc (cons
+	       (list cell (car directions) nl)
+	       acc))
     (set! directions (cdr directions)))
-  (reverse acc nil))
+  acc)
 
-(defun path (map l1 l2)
+(defun path (map l1 l2 ghosts-status)
   (local (queue (make-priority-queue))
 	 node
 	 key
@@ -227,22 +238,24 @@
 	 neighbour-location
 	 neighbour-direction
 	 neighbour
+	 nn
 	 closed)
 
   (set! queue (priority-queue-insert queue (manhattan l1 l2) (make-struct path-node 0 nil l1 0)))
   (while (not (eql (path-node.location (cdr (priority-queue-top queue))) l2))
     (set! node (cdr (priority-queue-top queue)))
     (set! queue (priority-queue-pop queue))
-    (set! neighbour-locations (neighbours map (path-node.location node)))
+    (set! neighbour-locations (neighbours map (path-node.location node) ghosts-status (+ 1 (path-node.cost node))))
     (set! closed (cons (path-node.location node) closed))
     (while (not (null neighbour-locations))
-      (set! neighbour-direction (car (car neighbour-locations)))
-      (set! neighbour-location (cdr (car neighbour-locations)))
+      (set! nn (car neighbour-locations))
+      (set! neighbour-direction (car (cdr nn)))
+      (set! neighbour-location (car (cdr (cdr nn))))
       (when (null (find-if (lambda (closed-location)
 			     (eql neighbour-location closed-location))
 			   closed))
 	(set! neighbour (make-struct path-node
-				     (+ 1 (path-node.cost node))
+				     (+ (- 0 (car nn)) (path-node.cost node))
 				     (cons node (path-node.path node))
 				     neighbour-location
 				     neighbour-direction))
@@ -318,7 +331,7 @@
       (when (not (null span))
 	(set! search-location (cons x y))))
     ;; (dbug (cons location search-location))
-    (set! current-path (path map location search-location)))
+    (set! current-path (path map location search-location ghosts-status)))
     ;; (dbug current-path))
   (set! next-direction (car current-path))
   (cons (cons (cons (cdr current-path) (player-status.lives status)) corner-idx) next-direction)
