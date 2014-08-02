@@ -106,8 +106,8 @@
 
 (defun cell-score (cell)
   (cond ((= cell player-start-pos) 0)
-	((= cell empty) -1)
-	((or (= cell ghost-start-pos) (= cell wall)) -2)
+	((= cell empty) 0)
+	((= cell wall) -1)
 	(t cell)))
 
 (defun get-cell-score (cell location)
@@ -224,13 +224,15 @@
     (set! cell (get-cell-score cell nl))
     (set! gv (get-ghost-vitality-at-cell ghosts-status location))
     (set! ga (get-ghost-score-adjustment gv dist))
-    (set! acc (cons
-	       (list cell (car directions) nl)
-	       acc))
+    (when (>= cell 0)
+      (set! acc (cons
+		 (list cell (car directions) nl)
+		 acc)))
     (set! directions (cdr directions)))
   acc)
 
 (defun path (map l1 l2 ghosts-status)
+  (dbug (cons l1 l2))
   (local (queue (make-priority-queue))
 	 node
 	 key
@@ -242,7 +244,7 @@
 	 closed)
 
   (set! queue (priority-queue-insert queue (manhattan l1 l2) (make-struct path-node 0 nil l1 0)))
-  (while (not (eql (path-node.location (cdr (priority-queue-top queue))) l2))
+  (while (and (not (null queue)) (not (eql (path-node.location (cdr (priority-queue-top queue))) l2)))
     (set! node (cdr (priority-queue-top queue)))
     (set! queue (priority-queue-pop queue))
     (set! neighbour-locations (neighbours map (path-node.location node) ghosts-status (+ 1 (path-node.cost node))))
@@ -262,7 +264,9 @@
 	(set! key (+ (path-node.cost neighbour)
 		     (manhattan neighbour-location l2)))
 	(set! queue (priority-queue-insert queue key neighbour)))
-      (set! neighbour-locations (cdr neighbour-locations))))
+      (set! neighbour-locations (cdr neighbour-locations)))
+    )
+;  (dbug (path-node.path (cdr (priority-queue-top queue))))
   (reverse (cons (path-node.direction (cdr (priority-queue-top queue)))
 		 (map (lambda (node)
 			(path-node.direction node))
@@ -332,7 +336,6 @@
 	(set! search-location (cons x y))))
     ;; (dbug (cons location search-location))
     (set! current-path (path map location search-location ghosts-status)))
-    ;; (dbug current-path))
   (set! next-direction (car current-path))
   (cons (cons (cons (cdr current-path) (player-status.lives status)) corner-idx) next-direction)
 
