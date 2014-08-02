@@ -263,8 +263,16 @@
   ;; (dbug tm)
   ;; (dbug (split-line-horiz m 1 1))
   ;; (dbug (split-at-pos m tm 1 1))
-  (cond (t (dbug 1)))
+  ;; (cond (t (dbug 1)))
   ;; (if 1
   ;;     (dbug 1)
   ;;     (dbug 2))
+     (f 1)
+     (g 1)
   )
+
+(defun f (x)
+  (dbug x))
+(defun g (x)
+  (local y)
+  (dbug x))

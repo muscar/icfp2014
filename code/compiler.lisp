@@ -202,18 +202,24 @@
   (compile-lang0 (process-includes (read-file path))))
 
 (defun lookup-env (sym)
-  (let ((level 0))
-    (loop for env in (l0-function-env *l0-current-function*)
-       do (let ((idx (position sym env)))
-	    (when idx
-	      (return (cons level idx))))
-	 (incf level))))
+  (let ((level 0)
+	(depth 0))
+    (loop for env in (l0-function-env *l0-current-function*) do
+	 (unless (or (car env) (= (mod depth 2) 1))
+	   (decf level))
+
+	 (let ((idx (position sym env)))
+	   (when idx
+	     (return (cons level idx))))
+
+	 (incf level)
+	 (incf depth))))
 
 (defun compile-l0-function (function)
   (let ((function-body-label (intern (concatenate 'string (symbol-name (l0-function-name function)) "-BODY"))))
-    (lang0-generate-function-stub function function-body-label)
-    (lang0-emit 'rem function-body-label)
-    (lang0-mark-label function-body-label)
+    (when (lang0-generate-function-stub function function-body-label)
+      (lang0-emit 'rem function-body-label)
+      (lang0-mark-label function-body-label))
     (dolist (instr (l0-function-body function))
       (compile-lang0-instruction instr))
     (lang0-emit 'rtn)))
@@ -222,10 +228,12 @@
   (lang0-emit 'rem (l0-function-name function))
   (lang0-mark-label (l0-function-name function))
   (let ((num-locals (length (l0-function-locals function))))
-    (dotimes (idx num-locals)
-      (lang0-emit 'ldc 0))
-    (lang0-emit 'ldf function-body-label)
-    (lang0-emit 'tap num-locals)))
+    (when (> num-locals 0)
+      (dotimes (idx num-locals)
+	(lang0-emit 'ldc 0))
+      (lang0-emit 'ldf function-body-label)
+      (lang0-emit 'tap num-locals)
+      t)))
 
 (defun compile-lang0 (program)
   (let ((*gcc-program* '())
