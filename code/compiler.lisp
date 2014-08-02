@@ -462,13 +462,12 @@
     t))
 
 (defun fold-constant (expr)
-  expr)
-  ;; (cond ((numberp expr) expr)
-  ;; 	((symbolp expr) (let ((constant (get-constant-ref expr)))
-  ;; 			  (if constant
-  ;; 			      (fold-constant constant)
-  ;; 			      expr)))
-  ;; 	(t expr)))
+  (cond ((numberp expr) expr)
+	((symbolp expr) (let ((constant (get-constant-ref expr)))
+			  (if constant
+			      (fold-constant constant)
+			      expr)))
+	(t expr)))
 
 (defun is-constant (expr)
   (let ((e (fold-constant expr)))
